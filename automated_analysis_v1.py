@@ -39,7 +39,7 @@ def ROUGE(generated_response, CVE_msg):
 
 
 #function used to evaluate
-'''
+
 def Unievaluation(reference, candidate, dimension="coherence"):
    
     # Initialize UniEval
@@ -54,8 +54,8 @@ def Unievaluation(reference, candidate, dimension="coherence"):
     # Evaluate the candidate text
     scores = evaluator.evaluate(input_data, dimension=dimension)
 
-    return scores[0]'
-    '''
+    return scores[0]
+    
 
 def extract_cwe_cve_summary(text):
     
@@ -80,7 +80,7 @@ def extract_cwe_cve_summary(text):
 def Overall_Score(generated_response, CVE_msg):
     cosine_similarity = Cosine_Similarity(generated_response, CVE_msg)
     rouge_scores = ROUGE(generated_response, CVE_msg)
-   #unieval_scores = Unievaluation(generated_response, CVE_msg, dimension='coherence')
+    unieval_scores = Unievaluation(generated_response, CVE_msg, dimension='coherence')
     print("Cosine Similarity Score:", cosine_similarity)
     print("ROUGE-1 Score:", rouge_scores['rouge1'])
     print("ROUGE-2 Score:", rouge_scores['rouge2'])
