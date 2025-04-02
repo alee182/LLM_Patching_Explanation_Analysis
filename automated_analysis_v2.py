@@ -9,6 +9,10 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
+import os
+import numpy as np
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 #Function for calculation Cosine Similarity
 embedding_creation_model = SentenceTransformer('all-mpnet-base-v2')
@@ -83,6 +87,7 @@ def extract_cwe_cve_summary(text):
 
 #Returns Dictionary of Llama3 guess at cwe, cve and summary
 def Ollama_Model_Analysis(Context_Given):
+    generated_response = ""
     stream = ollama.chat(model='llama3', messages=[{
     'role': 'user',
     'content': Context_Given
@@ -104,7 +109,14 @@ def add_analysis_to_json(json_object, model_name, model_analysis, cosine_score, 
     json_object[model_name +" Cosine_Similarity"] = cosine_score
     return json_object
 
-
+#converts 
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.floating):  # Handles float32, float64
+            return float(obj)
+        if isinstance(obj, np.integer):  # Handles int32, int64
+            return int(obj)
+        return super().default(obj)
 
 dataset = load_dataset("bstee615/bigvul", split='train')
 
@@ -115,7 +127,7 @@ filtered_dataset = dataset.filter(lambda row: row["vul"] == 1 and row["CWE ID"] 
 output_file = 'dataset_features.json'
 data_to_save = []
 
-batch_size = 5 
+batch_size = 20 
 '''
 # runs the entire dataset in batches
 for i in range(0, len(filtered_dataset), batch_size):
@@ -158,4 +170,10 @@ for instance in batch:
     llama3_analysis = Ollama_Model_Analysis(Context_Given)
     ollama_cosine_score = Cosine_Similarity(llama3_analysis.get('Summary'), instance_dict.get('CVE Details'))
     ollama_rouge_score = ROUGE(llama3_analysis.get('Summary'), instance_dict.get('CVE Details')) 
-    finished_json = add_analysis_to_json(instance_dict, 'llama3', llama3_analysis, ollama_cosine_score, ollama_rouge_score)
+    finished_dic = add_analysis_to_json(instance_dict, 'llama3', llama3_analysis, ollama_cosine_score, ollama_rouge_score)
+    # keep adding to finished json with other models before transaferring to json file
+    data_to_save.append(finished_dic)
+
+
+with open(output_file, "w") as json_file:
+    json.dump(data_to_save, json_file, indent=4, cls=NumpyEncoder)

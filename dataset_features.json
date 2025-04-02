@@ -1,67 +1,177 @@
 [
     {
-        "CVE ID": "CVE-2017-11462",
-        "CVE Page": "https://www.cvedetails.com/cve/CVE-2017-11462/",
-        "CWE ID": "CWE-415",
         "codeLink": "https://github.com/krb5/krb5/commit/56f7b1bc95a2a3eeb420e069e7655fb181ade5cf",
-        "commit_id": "56f7b1bc95a2a3eeb420e069e7655fb181ade5cf",
+        "CVE ID": "CVE-2017-11462",
+        "CVE Details": "Double free vulnerability in MIT Kerberos 5 (aka krb5) allows attackers to have unspecified impact via vectors involving automatic deletion of security contexts on error.",
+        "CWE ID": "CWE-415",
         "commit_message": "Preserve GSS context on init/accept failure\n\nAfter gss_init_sec_context() or gss_accept_sec_context() has created a\ncontext, don't delete the mechglue context on failures from subsequent\ncalls, even if the mechanism deletes the mech-specific context (which\nis allowed by RFC 2744 but not preferred).  Check for union contexts\nwith no mechanism context in each GSS function which accepts a\ngss_ctx_id_t.\n\nCVE-2017-11462:\n\nRFC 2744 permits a GSS-API implementation to delete an existing\nsecurity context on a second or subsequent call to\ngss_init_sec_context() or gss_accept_sec_context() if the call results\nin an error.  This API behavior has been found to be dangerous,\nleading to the possibility of memory errors in some callers.  For\nsafety, GSS-API implementations should instead preserve existing\nsecurity contexts on error until the caller deletes them.\n\nAll versions of MIT krb5 prior to this change may delete acceptor\ncontexts on error.  Versions 1.13.4 through 1.13.7, 1.14.1 through\n1.14.5, and 1.15 through 1.15.1 may also delete initiator contexts on\nerror.\n\nticket: 8598 (new)\ntarget_version: 1.15-next\ntarget_version: 1.14-next\ntags: pullup",
-        "func_after": "gss_get_mic (minor_status,\n\t     context_handle,\n\t     qop_req,\n\t     message_buffer,\n\t     msg_token)\n\nOM_uint32 *\t\tminor_status;\ngss_ctx_id_t\t\tcontext_handle;\ngss_qop_t\t\tqop_req;\ngss_buffer_t\t\tmessage_buffer;\ngss_buffer_t\t\tmsg_token;\n\n{\n    OM_uint32\t\tstatus;\n    gss_union_ctx_id_t\tctx;\n    gss_mechanism\tmech;\n\n    status = val_get_mic_args(minor_status, context_handle,\n\t\t\t      qop_req, message_buffer, msg_token);\n    if (status != GSS_S_COMPLETE)\n\treturn (status);\n\n    /*\n     * select the approprate underlying mechanism routine and\n     * call it.\n      */\n \n     ctx = (gss_union_ctx_id_t) context_handle;\n    if (ctx->internal_ctx_id == GSS_C_NO_CONTEXT)\n\treturn (GSS_S_NO_CONTEXT);\n     mech = gssint_get_mechanism (ctx->mech_type);\n \n     if (mech) {\n\tif (mech->gss_get_mic) {\n\t    status = mech->gss_get_mic(\n\t\t\t\t    minor_status,\n\t\t\t\t    ctx->internal_ctx_id,\n\t\t\t\t    qop_req,\n\t\t\t\t    message_buffer,\n\t\t\t\t    msg_token);\n\t    if (status != GSS_S_COMPLETE)\n\t\tmap_error(minor_status, mech);\n\t} else\n\t    status = GSS_S_UNAVAILABLE;\n\n\treturn(status);\n    }\n\n    return (GSS_S_BAD_MECH);\n}\n",
-        "func_before": "gss_get_mic (minor_status,\n\t     context_handle,\n\t     qop_req,\n\t     message_buffer,\n\t     msg_token)\n\nOM_uint32 *\t\tminor_status;\ngss_ctx_id_t\t\tcontext_handle;\ngss_qop_t\t\tqop_req;\ngss_buffer_t\t\tmessage_buffer;\ngss_buffer_t\t\tmsg_token;\n\n{\n    OM_uint32\t\tstatus;\n    gss_union_ctx_id_t\tctx;\n    gss_mechanism\tmech;\n\n    status = val_get_mic_args(minor_status, context_handle,\n\t\t\t      qop_req, message_buffer, msg_token);\n    if (status != GSS_S_COMPLETE)\n\treturn (status);\n\n    /*\n     * select the approprate underlying mechanism routine and\n     * call it.\n      */\n \n     ctx = (gss_union_ctx_id_t) context_handle;\n     mech = gssint_get_mechanism (ctx->mech_type);\n \n     if (mech) {\n\tif (mech->gss_get_mic) {\n\t    status = mech->gss_get_mic(\n\t\t\t\t    minor_status,\n\t\t\t\t    ctx->internal_ctx_id,\n\t\t\t\t    qop_req,\n\t\t\t\t    message_buffer,\n\t\t\t\t    msg_token);\n\t    if (status != GSS_S_COMPLETE)\n\t\tmap_error(minor_status, mech);\n\t} else\n\t    status = GSS_S_UNAVAILABLE;\n\n\treturn(status);\n    }\n\n    return (GSS_S_BAD_MECH);\n}\n",
-        "lang": "C",
-        "project": "krb5",
-        "vul": 1
+        "fixed_function": "gss_get_mic (minor_status,\n\t     context_handle,\n\t     qop_req,\n\t     message_buffer,\n\t     msg_token)\n\nOM_uint32 *\t\tminor_status;\ngss_ctx_id_t\t\tcontext_handle;\ngss_qop_t\t\tqop_req;\ngss_buffer_t\t\tmessage_buffer;\ngss_buffer_t\t\tmsg_token;\n\n{\n    OM_uint32\t\tstatus;\n    gss_union_ctx_id_t\tctx;\n    gss_mechanism\tmech;\n\n    status = val_get_mic_args(minor_status, context_handle,\n\t\t\t      qop_req, message_buffer, msg_token);\n    if (status != GSS_S_COMPLETE)\n\treturn (status);\n\n    /*\n     * select the approprate underlying mechanism routine and\n     * call it.\n      */\n \n     ctx = (gss_union_ctx_id_t) context_handle;\n    if (ctx->internal_ctx_id == GSS_C_NO_CONTEXT)\n\treturn (GSS_S_NO_CONTEXT);\n     mech = gssint_get_mechanism (ctx->mech_type);\n \n     if (mech) {\n\tif (mech->gss_get_mic) {\n\t    status = mech->gss_get_mic(\n\t\t\t\t    minor_status,\n\t\t\t\t    ctx->internal_ctx_id,\n\t\t\t\t    qop_req,\n\t\t\t\t    message_buffer,\n\t\t\t\t    msg_token);\n\t    if (status != GSS_S_COMPLETE)\n\t\tmap_error(minor_status, mech);\n\t} else\n\t    status = GSS_S_UNAVAILABLE;\n\n\treturn(status);\n    }\n\n    return (GSS_S_BAD_MECH);\n}\n",
+        "vul_function": "gss_get_mic (minor_status,\n\t     context_handle,\n\t     qop_req,\n\t     message_buffer,\n\t     msg_token)\n\nOM_uint32 *\t\tminor_status;\ngss_ctx_id_t\t\tcontext_handle;\ngss_qop_t\t\tqop_req;\ngss_buffer_t\t\tmessage_buffer;\ngss_buffer_t\t\tmsg_token;\n\n{\n    OM_uint32\t\tstatus;\n    gss_union_ctx_id_t\tctx;\n    gss_mechanism\tmech;\n\n    status = val_get_mic_args(minor_status, context_handle,\n\t\t\t      qop_req, message_buffer, msg_token);\n    if (status != GSS_S_COMPLETE)\n\treturn (status);\n\n    /*\n     * select the approprate underlying mechanism routine and\n     * call it.\n      */\n \n     ctx = (gss_union_ctx_id_t) context_handle;\n     mech = gssint_get_mechanism (ctx->mech_type);\n \n     if (mech) {\n\tif (mech->gss_get_mic) {\n\t    status = mech->gss_get_mic(\n\t\t\t\t    minor_status,\n\t\t\t\t    ctx->internal_ctx_id,\n\t\t\t\t    qop_req,\n\t\t\t\t    message_buffer,\n\t\t\t\t    msg_token);\n\t    if (status != GSS_S_COMPLETE)\n\t\tmap_error(minor_status, mech);\n\t} else\n\t    status = GSS_S_UNAVAILABLE;\n\n\treturn(status);\n    }\n\n    return (GSS_S_BAD_MECH);\n}\n",
+        "llama3 Summary": "The patch preserved GSS context on init/accept failure, preventing the deletion of security contexts on error as allowed by RFC 2744 but not preferred. This change ensures that existing security contexts are not deleted until the caller explicitly deletes them.",
+        "llama3 CWE": "CWE-20: Improper Input Validation",
+        "llama3 CVE": "CVE-2017-11462",
+        "llama3 Rouge_Score": {
+            "rouge1": [
+                0.28,
+                0.17073170731707318,
+                0.21212121212121213
+            ],
+            "rouge2": [
+                0.20833333333333334,
+                0.125,
+                0.15625
+            ],
+            "rougeL": [
+                0.24,
+                0.14634146341463414,
+                0.1818181818181818
+            ]
+        },
+        "llama3 Cosine_Similarity": 0.4530348777770996,
+        "Mistral Summary": "",
+        "Mistral CWE": "",
+        "Mistral CVE": "",
+        "Mistral Rouge_Score": {},
+        "Mistral Cosine_Similarity": ""
     },
     {
-        "CVE ID": "CVE-2018-6063",
-        "CVE Page": "https://www.cvedetails.com/cve/CVE-2018-6063/",
-        "CWE ID": "CWE-787",
         "codeLink": "https://github.com/chromium/chromium/commit/673ce95d481ea9368c4d4d43ac756ba1d6d9e608",
-        "commit_id": "673ce95d481ea9368c4d4d43ac756ba1d6d9e608",
+        "CVE ID": "CVE-2018-6063",
+        "CVE Details": "Incorrect use of mojo::WrapSharedMemoryHandle in Mojo in Google Chrome prior to 65.0.3325.146 allowed a remote attacker who had compromised the renderer process to perform an out of bounds memory write via a crafted HTML page.",
+        "CWE ID": "CWE-787",
         "commit_message": "Correct mojo::WrapSharedMemoryHandle usage\n\nFixes some incorrect uses of mojo::WrapSharedMemoryHandle which\nwere assuming that the call actually has any control over the memory\nprotection applied to a handle when mapped.\n\nWhere fixing usage is infeasible for this CL, TODOs are added to\nannotate follow-up work.\n\nAlso updates the API and documentation to (hopefully) improve clarity\nand avoid similar mistakes from being made in the future.\n\nBUG=792900\n\nCq-Include-Trybots: master.tryserver.chromium.android:android_optional_gpu_tests_rel;master.tryserver.chromium.linux:linux_optional_gpu_tests_rel;master.tryserver.chromium.mac:mac_optional_gpu_tests_rel;master.tryserver.chromium.win:win_optional_gpu_tests_rel\nChange-Id: I0578aaa9ca3bfcb01aaf2451315d1ede95458477\nReviewed-on: https://chromium-review.googlesource.com/818282\nReviewed-by: Wei Li <weili@chromium.org>\nReviewed-by: Lei Zhang <thestig@chromium.org>\nReviewed-by: John Abd-El-Malek <jam@chromium.org>\nReviewed-by: Daniel Cheng <dcheng@chromium.org>\nReviewed-by: Sadrul Chowdhury <sadrul@chromium.org>\nReviewed-by: Yuzhu Shen <yzshen@chromium.org>\nReviewed-by: Robert Sesek <rsesek@chromium.org>\nCommit-Queue: Ken Rockot <rockot@chromium.org>\nCr-Commit-Position: refs/heads/master@{#530268}",
-        "func_after": "void VideoCaptureImpl::OnBufferCreated(int32_t buffer_id,\n                                       mojo::ScopedSharedBufferHandle handle) {\n  DVLOG(1) << __func__ << \" buffer_id: \" << buffer_id;\n  DCHECK(io_thread_checker_.CalledOnValidThread());\n  DCHECK(handle.is_valid());\n \n   base::SharedMemoryHandle memory_handle;\n   size_t memory_size = 0;\n  mojo::UnwrappedSharedMemoryHandleProtection protection;\n \n   const MojoResult result = mojo::UnwrapSharedMemoryHandle(\n      std::move(handle), &memory_handle, &memory_size, &protection);\n   DCHECK_EQ(MOJO_RESULT_OK, result);\n   DCHECK_GT(memory_size, 0u);\n \n  // TODO(https://crbug.com/803136): We should also be able to assert that the\n  // unwrapped handle was shared for read-only mapping. That condition is not\n  // currently guaranteed to be met.\n\n   std::unique_ptr<base::SharedMemory> shm(\n       new base::SharedMemory(memory_handle, true /* read_only */));\n   if (!shm->Map(memory_size)) {\n    DLOG(ERROR) << \"OnBufferCreated: Map failed.\";\n    return;\n  }\n  const bool inserted =\n      client_buffers_\n          .insert(std::make_pair(buffer_id,\n                                 new ClientBuffer(std::move(shm), memory_size)))\n          .second;\n  DCHECK(inserted);\n}\n",
-        "func_before": "void VideoCaptureImpl::OnBufferCreated(int32_t buffer_id,\n                                       mojo::ScopedSharedBufferHandle handle) {\n  DVLOG(1) << __func__ << \" buffer_id: \" << buffer_id;\n  DCHECK(io_thread_checker_.CalledOnValidThread());\n  DCHECK(handle.is_valid());\n \n   base::SharedMemoryHandle memory_handle;\n   size_t memory_size = 0;\n  bool read_only_flag = false;\n \n   const MojoResult result = mojo::UnwrapSharedMemoryHandle(\n      std::move(handle), &memory_handle, &memory_size, &read_only_flag);\n   DCHECK_EQ(MOJO_RESULT_OK, result);\n   DCHECK_GT(memory_size, 0u);\n \n   std::unique_ptr<base::SharedMemory> shm(\n       new base::SharedMemory(memory_handle, true /* read_only */));\n   if (!shm->Map(memory_size)) {\n    DLOG(ERROR) << \"OnBufferCreated: Map failed.\";\n    return;\n  }\n  const bool inserted =\n      client_buffers_\n          .insert(std::make_pair(buffer_id,\n                                 new ClientBuffer(std::move(shm), memory_size)))\n          .second;\n  DCHECK(inserted);\n}\n",
-        "lang": "C",
-        "project": "Chrome",
-        "vul": 1
+        "fixed_function": "void VideoCaptureImpl::OnBufferCreated(int32_t buffer_id,\n                                       mojo::ScopedSharedBufferHandle handle) {\n  DVLOG(1) << __func__ << \" buffer_id: \" << buffer_id;\n  DCHECK(io_thread_checker_.CalledOnValidThread());\n  DCHECK(handle.is_valid());\n \n   base::SharedMemoryHandle memory_handle;\n   size_t memory_size = 0;\n  mojo::UnwrappedSharedMemoryHandleProtection protection;\n \n   const MojoResult result = mojo::UnwrapSharedMemoryHandle(\n      std::move(handle), &memory_handle, &memory_size, &protection);\n   DCHECK_EQ(MOJO_RESULT_OK, result);\n   DCHECK_GT(memory_size, 0u);\n \n  // TODO(https://crbug.com/803136): We should also be able to assert that the\n  // unwrapped handle was shared for read-only mapping. That condition is not\n  // currently guaranteed to be met.\n\n   std::unique_ptr<base::SharedMemory> shm(\n       new base::SharedMemory(memory_handle, true /* read_only */));\n   if (!shm->Map(memory_size)) {\n    DLOG(ERROR) << \"OnBufferCreated: Map failed.\";\n    return;\n  }\n  const bool inserted =\n      client_buffers_\n          .insert(std::make_pair(buffer_id,\n                                 new ClientBuffer(std::move(shm), memory_size)))\n          .second;\n  DCHECK(inserted);\n}\n",
+        "vul_function": "void VideoCaptureImpl::OnBufferCreated(int32_t buffer_id,\n                                       mojo::ScopedSharedBufferHandle handle) {\n  DVLOG(1) << __func__ << \" buffer_id: \" << buffer_id;\n  DCHECK(io_thread_checker_.CalledOnValidThread());\n  DCHECK(handle.is_valid());\n \n   base::SharedMemoryHandle memory_handle;\n   size_t memory_size = 0;\n  bool read_only_flag = false;\n \n   const MojoResult result = mojo::UnwrapSharedMemoryHandle(\n      std::move(handle), &memory_handle, &memory_size, &read_only_flag);\n   DCHECK_EQ(MOJO_RESULT_OK, result);\n   DCHECK_GT(memory_size, 0u);\n \n   std::unique_ptr<base::SharedMemory> shm(\n       new base::SharedMemory(memory_handle, true /* read_only */));\n   if (!shm->Map(memory_size)) {\n    DLOG(ERROR) << \"OnBufferCreated: Map failed.\";\n    return;\n  }\n  const bool inserted =\n      client_buffers_\n          .insert(std::make_pair(buffer_id,\n                                 new ClientBuffer(std::move(shm), memory_size)))\n          .second;\n  DCHECK(inserted);\n}\n",
+        "llama3 Summary": "The patch corrected the usage of mojo::WrapSharedMemoryHandle by removing an incorrect assumption about memory protection, fixing a vulnerability where the memory was not properly mapped.",
+        "llama3 CWE": "CWE121",
+        "llama3 CVE": "792900",
+        "llama3 Rouge_Score": {
+            "rouge1": [
+                0.20512820512820512,
+                0.3076923076923077,
+                0.2461538461538462
+            ],
+            "rouge2": [
+                0.05263157894736842,
+                0.08,
+                0.06349206349206349
+            ],
+            "rougeL": [
+                0.15384615384615385,
+                0.23076923076923078,
+                0.1846153846153846
+            ]
+        },
+        "llama3 Cosine_Similarity": 0.7264598608016968,
+        "Mistral Summary": "",
+        "Mistral CWE": "",
+        "Mistral CVE": "",
+        "Mistral Rouge_Score": {},
+        "Mistral Cosine_Similarity": ""
     },
     {
-        "CVE ID": "CVE-2017-13031",
-        "CVE Page": "https://www.cvedetails.com/cve/CVE-2017-13031/",
-        "CWE ID": "CWE-125",
         "codeLink": "https://github.com/the-tcpdump-group/tcpdump/commit/2d669862df7cd17f539129049f6fb70d17174125",
-        "commit_id": "2d669862df7cd17f539129049f6fb70d17174125",
+        "CVE ID": "CVE-2017-13031",
+        "CVE Details": "The IPv6 fragmentation header parser in tcpdump before 4.9.2 has a buffer over-read in print-frag6.c:frag6_print().",
+        "CWE ID": "CWE-125",
         "commit_message": "CVE-2017-13031/Check for the presence of the entire IPv6 fragment header.\n\nThis fixes a buffer over-read discovered by Bhargava Shastry,\nSecT/TU Berlin.\n\nAdd a test using the capture file supplied by the reporter(s), modified\nso the capture file won't be rejected as an invalid capture.\n\nClean up some whitespace in tests/TESTLIST while we're at it.",
-        "func_after": "frag6_print(netdissect_options *ndo, register const u_char *bp, register const u_char *bp2)\n{\n\tregister const struct ip6_frag *dp;\n\tregister const struct ip6_hdr *ip6;\n\n \tdp = (const struct ip6_frag *)bp;\n \tip6 = (const struct ip6_hdr *)bp2;\n \n\tND_TCHECK(*dp);\n \n \tif (ndo->ndo_vflag) {\n \t\tND_PRINT((ndo, \"frag (0x%08x:%d|%ld)\",\n\t\t       EXTRACT_32BITS(&dp->ip6f_ident),\n\t\t       EXTRACT_16BITS(&dp->ip6f_offlg) & IP6F_OFF_MASK,\n\t\t       sizeof(struct ip6_hdr) + EXTRACT_16BITS(&ip6->ip6_plen) -\n\t\t\t       (long)(bp - bp2) - sizeof(struct ip6_frag)));\n\t} else {\n\t\tND_PRINT((ndo, \"frag (%d|%ld)\",\n\t\t       EXTRACT_16BITS(&dp->ip6f_offlg) & IP6F_OFF_MASK,\n\t\t       sizeof(struct ip6_hdr) + EXTRACT_16BITS(&ip6->ip6_plen) -\n\t\t\t       (long)(bp - bp2) - sizeof(struct ip6_frag)));\n\t}\n\n\t/* it is meaningless to decode non-first fragment */\n\tif ((EXTRACT_16BITS(&dp->ip6f_offlg) & IP6F_OFF_MASK) != 0)\n\t\treturn -1;\n\telse\n\t{\n\t\tND_PRINT((ndo, \" \"));\n\t\treturn sizeof(struct ip6_frag);\n\t}\ntrunc:\n\tND_PRINT((ndo, \"[|frag]\"));\n\treturn -1;\n}\n",
-        "func_before": "frag6_print(netdissect_options *ndo, register const u_char *bp, register const u_char *bp2)\n{\n\tregister const struct ip6_frag *dp;\n\tregister const struct ip6_hdr *ip6;\n\n \tdp = (const struct ip6_frag *)bp;\n \tip6 = (const struct ip6_hdr *)bp2;\n \n\tND_TCHECK(dp->ip6f_offlg);\n \n \tif (ndo->ndo_vflag) {\n \t\tND_PRINT((ndo, \"frag (0x%08x:%d|%ld)\",\n\t\t       EXTRACT_32BITS(&dp->ip6f_ident),\n\t\t       EXTRACT_16BITS(&dp->ip6f_offlg) & IP6F_OFF_MASK,\n\t\t       sizeof(struct ip6_hdr) + EXTRACT_16BITS(&ip6->ip6_plen) -\n\t\t\t       (long)(bp - bp2) - sizeof(struct ip6_frag)));\n\t} else {\n\t\tND_PRINT((ndo, \"frag (%d|%ld)\",\n\t\t       EXTRACT_16BITS(&dp->ip6f_offlg) & IP6F_OFF_MASK,\n\t\t       sizeof(struct ip6_hdr) + EXTRACT_16BITS(&ip6->ip6_plen) -\n\t\t\t       (long)(bp - bp2) - sizeof(struct ip6_frag)));\n\t}\n\n\t/* it is meaningless to decode non-first fragment */\n\tif ((EXTRACT_16BITS(&dp->ip6f_offlg) & IP6F_OFF_MASK) != 0)\n\t\treturn -1;\n\telse\n\t{\n\t\tND_PRINT((ndo, \" \"));\n\t\treturn sizeof(struct ip6_frag);\n\t}\ntrunc:\n\tND_PRINT((ndo, \"[|frag]\"));\n\treturn -1;\n}\n",
-        "lang": "C",
-        "project": "tcpdump",
-        "vul": 1
+        "fixed_function": "frag6_print(netdissect_options *ndo, register const u_char *bp, register const u_char *bp2)\n{\n\tregister const struct ip6_frag *dp;\n\tregister const struct ip6_hdr *ip6;\n\n \tdp = (const struct ip6_frag *)bp;\n \tip6 = (const struct ip6_hdr *)bp2;\n \n\tND_TCHECK(*dp);\n \n \tif (ndo->ndo_vflag) {\n \t\tND_PRINT((ndo, \"frag (0x%08x:%d|%ld)\",\n\t\t       EXTRACT_32BITS(&dp->ip6f_ident),\n\t\t       EXTRACT_16BITS(&dp->ip6f_offlg) & IP6F_OFF_MASK,\n\t\t       sizeof(struct ip6_hdr) + EXTRACT_16BITS(&ip6->ip6_plen) -\n\t\t\t       (long)(bp - bp2) - sizeof(struct ip6_frag)));\n\t} else {\n\t\tND_PRINT((ndo, \"frag (%d|%ld)\",\n\t\t       EXTRACT_16BITS(&dp->ip6f_offlg) & IP6F_OFF_MASK,\n\t\t       sizeof(struct ip6_hdr) + EXTRACT_16BITS(&ip6->ip6_plen) -\n\t\t\t       (long)(bp - bp2) - sizeof(struct ip6_frag)));\n\t}\n\n\t/* it is meaningless to decode non-first fragment */\n\tif ((EXTRACT_16BITS(&dp->ip6f_offlg) & IP6F_OFF_MASK) != 0)\n\t\treturn -1;\n\telse\n\t{\n\t\tND_PRINT((ndo, \" \"));\n\t\treturn sizeof(struct ip6_frag);\n\t}\ntrunc:\n\tND_PRINT((ndo, \"[|frag]\"));\n\treturn -1;\n}\n",
+        "vul_function": "frag6_print(netdissect_options *ndo, register const u_char *bp, register const u_char *bp2)\n{\n\tregister const struct ip6_frag *dp;\n\tregister const struct ip6_hdr *ip6;\n\n \tdp = (const struct ip6_frag *)bp;\n \tip6 = (const struct ip6_hdr *)bp2;\n \n\tND_TCHECK(dp->ip6f_offlg);\n \n \tif (ndo->ndo_vflag) {\n \t\tND_PRINT((ndo, \"frag (0x%08x:%d|%ld)\",\n\t\t       EXTRACT_32BITS(&dp->ip6f_ident),\n\t\t       EXTRACT_16BITS(&dp->ip6f_offlg) & IP6F_OFF_MASK,\n\t\t       sizeof(struct ip6_hdr) + EXTRACT_16BITS(&ip6->ip6_plen) -\n\t\t\t       (long)(bp - bp2) - sizeof(struct ip6_frag)));\n\t} else {\n\t\tND_PRINT((ndo, \"frag (%d|%ld)\",\n\t\t       EXTRACT_16BITS(&dp->ip6f_offlg) & IP6F_OFF_MASK,\n\t\t       sizeof(struct ip6_hdr) + EXTRACT_16BITS(&ip6->ip6_plen) -\n\t\t\t       (long)(bp - bp2) - sizeof(struct ip6_frag)));\n\t}\n\n\t/* it is meaningless to decode non-first fragment */\n\tif ((EXTRACT_16BITS(&dp->ip6f_offlg) & IP6F_OFF_MASK) != 0)\n\t\treturn -1;\n\telse\n\t{\n\t\tND_PRINT((ndo, \" \"));\n\t\treturn sizeof(struct ip6_frag);\n\t}\ntrunc:\n\tND_PRINT((ndo, \"[|frag]\"));\n\treturn -1;\n}\n",
+        "llama3 Summary": "The patch added a check for the presence of the entire IPv6 fragment header to prevent buffer over-reads, which was implemented to fix a vulnerability discovered by Bhargava Shastry, SecT/TU Berlin.",
+        "llama3 CWE": "CWE-190",
+        "llama3 CVE": "CVE-2017-13031",
+        "llama3 Rouge_Score": {
+            "rouge1": [
+                0.36363636363636365,
+                0.24242424242424243,
+                0.2909090909090909
+            ],
+            "rouge2": [
+                0.19047619047619047,
+                0.125,
+                0.1509433962264151
+            ],
+            "rougeL": [
+                0.3181818181818182,
+                0.21212121212121213,
+                0.2545454545454546
+            ]
+        },
+        "llama3 Cosine_Similarity": 0.568432629108429,
+        "Mistral Summary": "",
+        "Mistral CWE": "",
+        "Mistral CVE": "",
+        "Mistral Rouge_Score": {},
+        "Mistral Cosine_Similarity": ""
     },
     {
-        "CVE ID": "CVE-2013-0917",
-        "CVE Page": "https://www.cvedetails.com/cve/CVE-2013-0917/",
-        "CWE ID": "CWE-119",
         "codeLink": "https://github.com/chromium/chromium/commit/02c8303512ebed345011f7b545e2f418799be2f0",
-        "commit_id": "02c8303512ebed345011f7b545e2f418799be2f0",
+        "CVE ID": "CVE-2013-0917",
+        "CVE Details": "The URL loader in Google Chrome before 26.0.1410.43 allows remote attackers to cause a denial of service (out-of-bounds read) via unspecified vectors.",
+        "CWE ID": "CWE-119",
         "commit_message": "Oilpan: Ship Oilpan for SyncCallbackHelper, CreateFileResult and CallbackWrapper in filesystem/\n\nThese are leftovers when we shipped Oilpan for filesystem/ once.\n\nBUG=340522\n\nReview URL: https://codereview.chromium.org/501263003\n\ngit-svn-id: svn://svn.chromium.org/blink/trunk@180909 bbb929c8-8fbe-4397-9dbb-9b2b20218538",
-        "func_after": " EntrySync* EntrySync::copyTo(DirectoryEntrySync* parent, const String& name, ExceptionState& exceptionState) const\n {\n    EntrySyncCallbackHelper* helper = EntrySyncCallbackHelper::create();\n     m_fileSystem->copy(this, parent, name, helper->successCallback(), helper->errorCallback(), DOMFileSystemBase::Synchronous);\n     return helper->getResult(exceptionState);\n }\n",
-        "func_before": " EntrySync* EntrySync::copyTo(DirectoryEntrySync* parent, const String& name, ExceptionState& exceptionState) const\n {\n    RefPtr<EntrySyncCallbackHelper> helper = EntrySyncCallbackHelper::create();\n     m_fileSystem->copy(this, parent, name, helper->successCallback(), helper->errorCallback(), DOMFileSystemBase::Synchronous);\n     return helper->getResult(exceptionState);\n }\n",
-        "lang": "C",
-        "project": "Chrome",
-        "vul": 1
+        "fixed_function": " EntrySync* EntrySync::copyTo(DirectoryEntrySync* parent, const String& name, ExceptionState& exceptionState) const\n {\n    EntrySyncCallbackHelper* helper = EntrySyncCallbackHelper::create();\n     m_fileSystem->copy(this, parent, name, helper->successCallback(), helper->errorCallback(), DOMFileSystemBase::Synchronous);\n     return helper->getResult(exceptionState);\n }\n",
+        "vul_function": " EntrySync* EntrySync::copyTo(DirectoryEntrySync* parent, const String& name, ExceptionState& exceptionState) const\n {\n    RefPtr<EntrySyncCallbackHelper> helper = EntrySyncCallbackHelper::create();\n     m_fileSystem->copy(this, parent, name, helper->successCallback(), helper->errorCallback(), DOMFileSystemBase::Synchronous);\n     return helper->getResult(exceptionState);\n }\n",
+        "llama3 Summary": "The patch fixed a vulnerability by ensuring the ownership of the 'helper' object is properly handled, preventing potential use-after-free issues. This was implemented to address a previously known bug (BUG=340522) and remove leftover code from an earlier shipping of Oilpan for filesystem.",
+        "llama3 CWE": "416",
+        "llama3 CVE": "None",
+        "llama3 Rouge_Score": {
+            "rouge1": [
+                0.18518518518518517,
+                0.1111111111111111,
+                0.13888888888888887
+            ],
+            "rouge2": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rougeL": [
+                0.14814814814814814,
+                0.08888888888888889,
+                0.1111111111111111
+            ]
+        },
+        "llama3 Cosine_Similarity": 0.22955918312072754,
+        "Mistral Summary": "",
+        "Mistral CWE": "",
+        "Mistral CVE": "",
+        "Mistral Rouge_Score": {},
+        "Mistral Cosine_Similarity": ""
     },
     {
-        "CVE ID": "CVE-2015-1215",
-        "CVE Page": "https://www.cvedetails.com/cve/CVE-2015-1215/",
-        "CWE ID": "CWE-119",
         "codeLink": "https://github.com/chromium/chromium/commit/2bceda4948deeaed0a5a99305d0d488eb952f64f",
-        "commit_id": "2bceda4948deeaed0a5a99305d0d488eb952f64f",
+        "CVE ID": "CVE-2015-1215",
+        "CVE Details": "The filters implementation in Skia, as used in Google Chrome before 41.0.2272.76, allows remote attackers to cause a denial of service or possibly have unspecified other impact via vectors that trigger an out-of-bounds write operation.",
+        "CWE ID": "CWE-119",
         "commit_message": "Allow serialization of empty bluetooth uuids.\n\nThis change allows the passing WTF::Optional<String> types as\nbluetooth.mojom.UUID optional parameter without needing to ensure the passed\nobject isn't empty.\n\nBUG=None\n\nR=juncai, dcheng\n\nReview-Url: https://codereview.chromium.org/2646613003\nCr-Commit-Position: refs/heads/master@{#445809}",
-        "func_after": "ScriptPromise BluetoothRemoteGATTServer::getPrimaryServicesImpl(\n    ScriptState* scriptState,\n    mojom::blink::WebBluetoothGATTQueryQuantity quantity,\n    String servicesUUID) {\n  if (!connected()) {\n    return ScriptPromise::rejectWithDOMException(\n        scriptState,\n        DOMException::create(NetworkError, kGATTServerNotConnected));\n  }\n\n  ScriptPromiseResolver* resolver = ScriptPromiseResolver::create(scriptState);\n  ScriptPromise promise = resolver->promise();\n   AddToActiveAlgorithms(resolver);\n \n   mojom::blink::WebBluetoothService* service = m_device->bluetooth()->service();\n   service->RemoteServerGetPrimaryServices(\n      device()->id(), quantity, servicesUUID,\n       convertToBaseCallback(\n           WTF::bind(&BluetoothRemoteGATTServer::GetPrimaryServicesCallback,\n                     wrapPersistent(this), quantity, wrapPersistent(resolver))));\n  return promise;\n}\n",
-        "func_before": "ScriptPromise BluetoothRemoteGATTServer::getPrimaryServicesImpl(\n    ScriptState* scriptState,\n    mojom::blink::WebBluetoothGATTQueryQuantity quantity,\n    String servicesUUID) {\n  if (!connected()) {\n    return ScriptPromise::rejectWithDOMException(\n        scriptState,\n        DOMException::create(NetworkError, kGATTServerNotConnected));\n  }\n\n  ScriptPromiseResolver* resolver = ScriptPromiseResolver::create(scriptState);\n  ScriptPromise promise = resolver->promise();\n   AddToActiveAlgorithms(resolver);\n \n   mojom::blink::WebBluetoothService* service = m_device->bluetooth()->service();\n  WTF::Optional<String> uuid = WTF::nullopt;\n  if (!servicesUUID.isEmpty())\n    uuid = servicesUUID;\n   service->RemoteServerGetPrimaryServices(\n      device()->id(), quantity, uuid,\n       convertToBaseCallback(\n           WTF::bind(&BluetoothRemoteGATTServer::GetPrimaryServicesCallback,\n                     wrapPersistent(this), quantity, wrapPersistent(resolver))));\n  return promise;\n}\n",
-        "lang": "C",
-        "project": "Chrome",
-        "vul": 1
+        "fixed_function": "ScriptPromise BluetoothRemoteGATTServer::getPrimaryServicesImpl(\n    ScriptState* scriptState,\n    mojom::blink::WebBluetoothGATTQueryQuantity quantity,\n    String servicesUUID) {\n  if (!connected()) {\n    return ScriptPromise::rejectWithDOMException(\n        scriptState,\n        DOMException::create(NetworkError, kGATTServerNotConnected));\n  }\n\n  ScriptPromiseResolver* resolver = ScriptPromiseResolver::create(scriptState);\n  ScriptPromise promise = resolver->promise();\n   AddToActiveAlgorithms(resolver);\n \n   mojom::blink::WebBluetoothService* service = m_device->bluetooth()->service();\n   service->RemoteServerGetPrimaryServices(\n      device()->id(), quantity, servicesUUID,\n       convertToBaseCallback(\n           WTF::bind(&BluetoothRemoteGATTServer::GetPrimaryServicesCallback,\n                     wrapPersistent(this), quantity, wrapPersistent(resolver))));\n  return promise;\n}\n",
+        "vul_function": "ScriptPromise BluetoothRemoteGATTServer::getPrimaryServicesImpl(\n    ScriptState* scriptState,\n    mojom::blink::WebBluetoothGATTQueryQuantity quantity,\n    String servicesUUID) {\n  if (!connected()) {\n    return ScriptPromise::rejectWithDOMException(\n        scriptState,\n        DOMException::create(NetworkError, kGATTServerNotConnected));\n  }\n\n  ScriptPromiseResolver* resolver = ScriptPromiseResolver::create(scriptState);\n  ScriptPromise promise = resolver->promise();\n   AddToActiveAlgorithms(resolver);\n \n   mojom::blink::WebBluetoothService* service = m_device->bluetooth()->service();\n  WTF::Optional<String> uuid = WTF::nullopt;\n  if (!servicesUUID.isEmpty())\n    uuid = servicesUUID;\n   service->RemoteServerGetPrimaryServices(\n      device()->id(), quantity, uuid,\n       convertToBaseCallback(\n           WTF::bind(&BluetoothRemoteGATTServer::GetPrimaryServicesCallback,\n                     wrapPersistent(this), quantity, wrapPersistent(resolver))));\n  return promise;\n}\n",
+        "llama3 Summary": "The patch allowed serialization of empty Bluetooth UUIDs by introducing a WTF::Optional<String> type to the function, ensuring that the code handles the case where an empty string is passed as the uuid parameter without crashing.",
+        "llama3 CWE": "CWE-20 (Improper Input Handling)",
+        "llama3 CVE": "CVE-2018-6175",
+        "llama3 Rouge_Score": {
+            "rouge1": [
+                0.2,
+                0.21621621621621623,
+                0.2077922077922078
+            ],
+            "rouge2": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rougeL": [
+                0.125,
+                0.13513513513513514,
+                0.12987012987012989
+            ]
+        },
+        "llama3 Cosine_Similarity": 0.13044893741607666,
+        "Mistral Summary": "",
+        "Mistral CWE": "",
+        "Mistral CVE": "",
+        "Mistral Rouge_Score": {},
+        "Mistral Cosine_Similarity": ""
     }
 ]
