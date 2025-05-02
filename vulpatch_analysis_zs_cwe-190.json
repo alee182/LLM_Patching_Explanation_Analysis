@@ -1,0 +1,707 @@
+[
+    {
+        "codeLink": "https://github.com/mdadams/jasper/commit/d42b2388f7f8e0332c846675133acea151fc557a",
+        "CVE ID": "CVE-2016-9557",
+        "CVE Details": "Integer overflow in jas_image.c in JasPer before 1.900.25 allows remote attackers to cause a denial of service (application crash) via a crafted file.",
+        "CWE ID": "CWE-190",
+        "commit_message": "The generation of the configuration file jas_config.h has been completely\nreworked in order to avoid pollution of the global namespace.\n\nSome problematic types like uchar, ulong, and friends have been replaced\nwith names with a jas_ prefix.\n\nAn option max_samples has been added to the BMP and JPEG decoders to\nrestrict the maximum size of image that they can decode.  This change\nwas made as a (possibly temporary) fix to address security concerns.\nA max_samples command-line option has also been added to imginfo.\n\nWhether an image component (for jas_image_t) is stored in memory or on\ndisk is now based on the component size (rather than the image size).\n\nSome debug log message were added.\n\nSome new integer overflow checks were added.\n\nSome new safe integer add/multiply functions were added.\n\nMore pre-C99 cruft was removed.  JasPer has numerous \"hacks\" to\nhandle pre-C99 compilers.  JasPer now assumes C99 support.  So, this\npre-C99 cruft is unnecessary and can be removed.\n\nThe regression jasper-doublefree-mem_close.jpg has been re-enabled.\nTheoretically, it should work more predictably now.",
+        "fixed_function": " static mif_hdr_t *mif_hdr_get(jas_stream_t *in)\n {\n\tjas_uchar magicbuf[MIF_MAGICLEN];\n \tchar buf[4096];\n \tmif_hdr_t *hdr;\n \tbool done;\n\tjas_tvparser_t *tvp;\n\tint id;\n\n\thdr = 0;\n\ttvp = 0;\n\n\tif (jas_stream_read(in, magicbuf, MIF_MAGICLEN) != MIF_MAGICLEN) {\n\t\tgoto error;\n\t}\n\tif (magicbuf[0] != (MIF_MAGIC >> 24) || magicbuf[1] != ((MIF_MAGIC >> 16) &\n\t  0xff) || magicbuf[2] != ((MIF_MAGIC >> 8) & 0xff) || magicbuf[3] !=\n\t  (MIF_MAGIC & 0xff)) {\n\t\tjas_eprintf(\"error: bad signature\\n\");\n\t\tgoto error;\n\t}\n\n\tif (!(hdr = mif_hdr_create(0))) {\n\t\tgoto error;\n\t}\n\n\tdone = false;\n\tdo {\n\t\tif (!mif_getline(in, buf, sizeof(buf))) {\n\t\t\tjas_eprintf(\"mif_getline failed\\n\");\n\t\t\tgoto error;\n\t\t}\n\t\tif (buf[0] == '\\0') {\n\t\t\tcontinue;\n\t\t}\n\t\tJAS_DBGLOG(10, (\"header line: len=%d; %s\\n\", strlen(buf), buf));\n\t\tif (!(tvp = jas_tvparser_create(buf))) {\n\t\t\tjas_eprintf(\"jas_tvparser_create failed\\n\");\n\t\t\tgoto error;\n\t\t}\n\t\tif (jas_tvparser_next(tvp)) {\n\t\t\tjas_eprintf(\"cannot get record type\\n\");\n\t\t\tgoto error;\n\t\t}\n\t\tid = jas_taginfo_nonull(jas_taginfos_lookup(mif_tags2,\n\t\t  jas_tvparser_gettag(tvp)))->id;\n\t\tjas_tvparser_destroy(tvp);\n\t\ttvp = 0;\n\t\tswitch (id) {\n\t\tcase MIF_CMPT:\n\t\t\tif (mif_process_cmpt(hdr, buf)) {\n\t\t\t\tjas_eprintf(\"cannot get component information\\n\");\n\t\t\t\tgoto error;\n\t\t\t}\n\t\t\tbreak;\n\t\tcase MIF_END:\n\t\t\tdone = 1;\n\t\t\tbreak;\n\t\tdefault:\n\t\t\tjas_eprintf(\"invalid header information: %s\\n\", buf);\n\t\t\tgoto error;\n\t\t\tbreak;\n\t\t}\n\t} while (!done);\n\n\treturn hdr;\n\nerror:\n\tif (hdr) {\n\t\tmif_hdr_destroy(hdr);\n\t}\n\tif (tvp) {\n\t\tjas_tvparser_destroy(tvp);\n\t}\n\treturn 0;\n}\n",
+        "vul_function": " static mif_hdr_t *mif_hdr_get(jas_stream_t *in)\n {\n\tuchar magicbuf[MIF_MAGICLEN];\n \tchar buf[4096];\n \tmif_hdr_t *hdr;\n \tbool done;\n\tjas_tvparser_t *tvp;\n\tint id;\n\n\thdr = 0;\n\ttvp = 0;\n\n\tif (jas_stream_read(in, magicbuf, MIF_MAGICLEN) != MIF_MAGICLEN) {\n\t\tgoto error;\n\t}\n\tif (magicbuf[0] != (MIF_MAGIC >> 24) || magicbuf[1] != ((MIF_MAGIC >> 16) &\n\t  0xff) || magicbuf[2] != ((MIF_MAGIC >> 8) & 0xff) || magicbuf[3] !=\n\t  (MIF_MAGIC & 0xff)) {\n\t\tjas_eprintf(\"error: bad signature\\n\");\n\t\tgoto error;\n\t}\n\n\tif (!(hdr = mif_hdr_create(0))) {\n\t\tgoto error;\n\t}\n\n\tdone = false;\n\tdo {\n\t\tif (!mif_getline(in, buf, sizeof(buf))) {\n\t\t\tjas_eprintf(\"mif_getline failed\\n\");\n\t\t\tgoto error;\n\t\t}\n\t\tif (buf[0] == '\\0') {\n\t\t\tcontinue;\n\t\t}\n\t\tJAS_DBGLOG(10, (\"header line: len=%d; %s\\n\", strlen(buf), buf));\n\t\tif (!(tvp = jas_tvparser_create(buf))) {\n\t\t\tjas_eprintf(\"jas_tvparser_create failed\\n\");\n\t\t\tgoto error;\n\t\t}\n\t\tif (jas_tvparser_next(tvp)) {\n\t\t\tjas_eprintf(\"cannot get record type\\n\");\n\t\t\tgoto error;\n\t\t}\n\t\tid = jas_taginfo_nonull(jas_taginfos_lookup(mif_tags2,\n\t\t  jas_tvparser_gettag(tvp)))->id;\n\t\tjas_tvparser_destroy(tvp);\n\t\ttvp = 0;\n\t\tswitch (id) {\n\t\tcase MIF_CMPT:\n\t\t\tif (mif_process_cmpt(hdr, buf)) {\n\t\t\t\tjas_eprintf(\"cannot get component information\\n\");\n\t\t\t\tgoto error;\n\t\t\t}\n\t\t\tbreak;\n\t\tcase MIF_END:\n\t\t\tdone = 1;\n\t\t\tbreak;\n\t\tdefault:\n\t\t\tjas_eprintf(\"invalid header information: %s\\n\", buf);\n\t\t\tgoto error;\n\t\t\tbreak;\n\t\t}\n\t} while (!done);\n\n\treturn hdr;\n\nerror:\n\tif (hdr) {\n\t\tmif_hdr_destroy(hdr);\n\t}\n\tif (tvp) {\n\t\tjas_tvparser_destroy(tvp);\n\t}\n\treturn 0;\n}\n",
+        "llama3.1 Summary": "The patch adds integer overflow checks to prevent potential buffer overflows and fixes a bug in the JasPer configuration file generation that could lead to namespace pollution. Fixed version of function:  static mif_hdr_t *mif_hdr_get(jas_stream_t *in)\n {\n\tjas_uchar magicbuf[MIF_MAGICLEN];\n \tchar buf[4096];\n \tmif_hdr_t *hdr;\n \tbool done;\n\tjas_tvparser_t *tvp;\n\tint id;\n\n\thdr = 0;\n\ttvp = 0;\n\n\tif (jas_stream_read(in, magicbuf, MIF_MAGICLEN) != MIF_MAGICLEN) {\n\t\tgoto error;\n\t}\n\tif (magicbuf[0] != (MIF_MAGIC >> 24) || magicbuf[1] != ((MIF_MAGIC >> 16) &\n\t  0xff) || magicbuf[2] != ((MIF_MAGIC >> 8) & 0xff) || magicbuf[3] !=\n\t  (MIF_MAGIC & 0xff)) {\n\t\tjas_eprintf(\"error: bad signature\\n\");\n\t\tgoto error;\n\t}\n\n\tif (!(hdr = mif_hdr_create(0))) {\n\t\tgoto error;\n\t}\n\n\tdone = false;\n\tdo {\n\t\tif (!mif_getline(in, buf, sizeof(buf))) {\n\t\t\tjas_eprintf(\"mif_getline failed\\n\");\n\t\t\tgoto error;\n\t\t}\n\t\tif (buf[0] == '\\0') {\n\t\t\tcontinue;\n\t\t}\n\t\tJAS_DBGLOG(10, (\"header line: len=%d; %s\\n\", strlen(buf), buf));\n\t\tif (!(tvp = jas_tvparser_create(buf))) {\n\t\t\tjas_eprintf(\"jas_tvparser_create failed\\n\");\n\t\t\tgoto error;\n\t\t}\n\t\tif (jas_tvparser_next(tvp)) {\n\t\t\tjas_eprintf(\"cannot get record type\\n\");\n\t\t\tgoto error;\n\t\t}\n\t\tid = jas_taginfo_nonull(jas_taginfos_lookup(mif_tags2,\n\t\t  jas_tvparser_gettag(tvp)))->id;\n\t\tjas_tvparser_destroy(tvp);\n\t\ttvp = 0;\n\t\tswitch (id) {\n\t\tcase MIF_CMPT:\n\t\t\tif (mif_process_cmpt(hdr, buf)) {\n\t\t\t\tjas_eprintf(\"cannot get component information\\n\");\n\t\t\t\tgoto error;\n\t\t\t}\n\t\t\tbreak;\n\t\tcase MIF_END:\n\t\t\tdone = 1;\n\t\t\tbreak;\n\t\tdefault:\n\t\t\tjas_eprintf(\"invalid header information: %s\\n\", buf);\n\t\t\tgoto error;\n\t\t\tbreak;\n\t\t}\n\t} while (!done);\n\n\treturn hdr;\n\nerror:\n\tif (hdr) {\n\t\tmif_hdr_destroy(hdr);\n\t}\n\tif (tvp) {\n\t\tjas_tvparser_destroy(tvp);\n\t}\n\treturn 0;\n}",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2009-1234",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.2589",
+            "BERTScore Recall": "0.4894",
+            "BERTScore F1": "0.3386"
+        },
+        "llama3.1 Cosine_Similarity": 0.5992040634155273,
+        "Mistral Summary": null,
+        "Mistral CWE": "CWE-134 (Buffer Overflow)\n   Reason: The new integer overflow checks and safe integer add/multiply functions were added in response to a security concern, suggesting the presence of a potential buffer overflow vulnerability.\n\n   Solution: Enforce proper bounds checking for all memory operations, especially when handling user-supplied data. Use safe functions for string manipulation (e.g., strcpy_s, strncat_s) and ensure that arrays are properly dimensioned to avoid overflows. Regularly review and sanitize input from untrusted sources.",
+        "Mistral CVE": null,
+        "Mistral Cosine_Similarity": 0.08056789636611938,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.3262",
+            "BERTScore Recall": "0.2947",
+            "BERTScore F1": "0.3096"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "num": 1,
+        "codeLink": "https://github.com/viabtc/viabtc_exchange_server/commit/4a7c27bfe98f409623d4d857894d017ff0672cc9#diff-515c81af848352583bff286d6224875f",
+        "CVE ID": "CVE-2018-17570",
+        "CVE Details": "utils/ut_ws_svr.c in ViaBTC Exchange Server before 2018-08-21 has an integer overflow leading to memory corruption.",
+        "CWE ID": "CWE-190",
+        "commit_message": "Merge pull request #131 from benjaminchodroff/master\n\nfix memory corruption and other 32bit overflows",
+        "fixed_function": "int rpc_pack(rpc_pkg *pkg, void **data, uint32_t *size)\n {\n     static void *send_buf;\n     static size_t send_buf_size;\n    uint32_t pkg_size;\n    if (pkg->body_size > RPC_PKG_MAX_BODY_SIZE) {\n        return -1;\n    }\n    pkg_size = RPC_PKG_HEAD_SIZE + pkg->ext_size + pkg->body_size;\n     if (send_buf_size < pkg_size) {\n         if (send_buf)\n             free(send_buf);\n         send_buf_size = pkg_size * 2;\n         send_buf = malloc(send_buf_size);\n        if (send_buf == NULL) {\n            return -1;\n        }\n     }\n \n     memcpy(send_buf, pkg, RPC_PKG_HEAD_SIZE);\n    if (pkg->ext_size)\n        memcpy(send_buf + RPC_PKG_HEAD_SIZE, pkg->ext, pkg->ext_size);\n    if (pkg->body_size)\n        memcpy(send_buf + RPC_PKG_HEAD_SIZE + pkg->ext_size, pkg->body, pkg->body_size);\n\n    pkg = send_buf;\n    pkg->magic     = htole32(RPC_PKG_MAGIC);\n    pkg->command   = htole32(pkg->command);\n    pkg->pkg_type  = htole16(pkg->pkg_type);\n    pkg->result    = htole32(pkg->result);\n    pkg->sequence  = htole32(pkg->sequence);\n    pkg->req_id    = htole64(pkg->req_id);\n    pkg->body_size = htole32(pkg->body_size);\n    pkg->ext_size  = htole16(pkg->ext_size);\n\n    pkg->crc32 = 0;\n    pkg->crc32 = htole32(generate_crc32c(send_buf, pkg_size));\n\n    *data = send_buf;\n    *size = pkg_size;\n\n    return 0;\n}\n",
+        "vul_function": "int rpc_pack(rpc_pkg *pkg, void **data, uint32_t *size)\n {\n     static void *send_buf;\n     static size_t send_buf_size;\n    uint32_t pkg_size = RPC_PKG_HEAD_SIZE + pkg->ext_size + pkg->body_size;\n     if (send_buf_size < pkg_size) {\n         if (send_buf)\n             free(send_buf);\n         send_buf_size = pkg_size * 2;\n         send_buf = malloc(send_buf_size);\n        assert(send_buf != NULL);\n     }\n \n     memcpy(send_buf, pkg, RPC_PKG_HEAD_SIZE);\n    if (pkg->ext_size)\n        memcpy(send_buf + RPC_PKG_HEAD_SIZE, pkg->ext, pkg->ext_size);\n    if (pkg->body_size)\n        memcpy(send_buf + RPC_PKG_HEAD_SIZE + pkg->ext_size, pkg->body, pkg->body_size);\n\n    pkg = send_buf;\n    pkg->magic     = htole32(RPC_PKG_MAGIC);\n    pkg->command   = htole32(pkg->command);\n    pkg->pkg_type  = htole16(pkg->pkg_type);\n    pkg->result    = htole32(pkg->result);\n    pkg->sequence  = htole32(pkg->sequence);\n    pkg->req_id    = htole64(pkg->req_id);\n    pkg->body_size = htole32(pkg->body_size);\n    pkg->ext_size  = htole16(pkg->ext_size);\n\n    pkg->crc32 = 0;\n    pkg->crc32 = htole32(generate_crc32c(send_buf, pkg_size));\n\n    *data = send_buf;\n    *size = pkg_size;\n\n    return 0;\n}\n",
+        "llama3.1 Summary": "The patch fixes a potential memory leak by properly handling the return value of malloc, and also addresses a possible 32-bit overflow in calculating the pkg_size variable. These changes ensure that the function can handle large input sizes without causing memory corruption or other issues.",
+        "llama3.1 CWE": "CWE-119",
+        "llama3.1 CVE": "CVE-2023-1234",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.5653",
+            "BERTScore Recall": "0.6207",
+            "BERTScore F1": "0.5917"
+        },
+        "llama3.1 Cosine_Similarity": 0.315524697303772,
+        "Mistral Summary": "The patch changes a potential heap buffer overflow in the RPC function by properly allocating space for the data before copying it, and verifying that the allocated size is sufficient. This prevents arbitrary code execution or other malicious activity caused by writing beyond the intended memory bounds.",
+        "Mistral CWE": "CWE-170",
+        "Mistral CVE": "To be determined by the appropriate organization or vendor",
+        "Mistral Cosine_Similarity": 0.2596665620803833,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.5421",
+            "BERTScore Recall": "0.5989",
+            "BERTScore F1": "0.5691"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "num": 2,
+        "codeLink": "https://github.com/php/php-src/commit/7245bff300d3fa8bacbef7897ff080a6f1c23eba?w=1",
+        "CVE ID": "CVE-2016-5770",
+        "CVE Details": "Integer overflow in the SplFileObject::fread function in spl_directory.c in the SPL extension in PHP before 5.5.37 and 5.6.x before 5.6.23 allows remote attackers to cause a denial of service or possibly have unspecified other impact via a large integer argument, a related issue to CVE-2016-5096.",
+        "CWE ID": "CWE-190",
+        "commit_message": "Fix bug #72262 - do not overflow int",
+        "fixed_function": "static int spl_filesystem_file_read(spl_filesystem_object *intern, int silent TSRMLS_DC) /* {{{ */\n{\n\tchar *buf;\n\tsize_t line_len = 0;\n \tlong line_add = (intern->u.file.current_line || intern->u.file.current_zval) ? 1 : 0;\n \n \tspl_filesystem_file_free_line(intern TSRMLS_CC);\n\n \tif (php_stream_eof(intern->u.file.stream)) {\n \t\tif (!silent) {\n \t\t\tzend_throw_exception_ex(spl_ce_RuntimeException, 0 TSRMLS_CC, \"Cannot read from file %s\", intern->file_name);\n\t\t}\n\t\treturn FAILURE;\n\t}\n\n\tif (intern->u.file.max_line_len > 0) {\n\t\tbuf = safe_emalloc((intern->u.file.max_line_len + 1), sizeof(char), 0);\n\t\tif (php_stream_get_line(intern->u.file.stream, buf, intern->u.file.max_line_len + 1, &line_len) == NULL) {\n\t\t\tefree(buf);\n\t\t\tbuf = NULL;\n\t\t} else {\n\t\t\tbuf[line_len] = '\\0';\n\t\t}\n\t} else {\n\t\tbuf = php_stream_get_line(intern->u.file.stream, NULL, 0, &line_len);\n\t}\n\n\tif (!buf) {\n\t\tintern->u.file.current_line = estrdup(\"\");\n\t\tintern->u.file.current_line_len = 0;\n\t} else {\n\t\tif (SPL_HAS_FLAG(intern->flags, SPL_FILE_OBJECT_DROP_NEW_LINE)) {\n \t\t\tline_len = strcspn(buf, \"\\r\\n\");\n \t\t\tbuf[line_len] = '\\0';\n \t\t}\n\n \t\tintern->u.file.current_line = buf;\n \t\tintern->u.file.current_line_len = line_len;\n \t}\n\tintern->u.file.current_line_num += line_add;\n\n\treturn SUCCESS;\n} /* }}} */\n",
+        "vul_function": "static int spl_filesystem_file_read(spl_filesystem_object *intern, int silent TSRMLS_DC) /* {{{ */\n{\n\tchar *buf;\n\tsize_t line_len = 0;\n \tlong line_add = (intern->u.file.current_line || intern->u.file.current_zval) ? 1 : 0;\n \n \tspl_filesystem_file_free_line(intern TSRMLS_CC);\n \tif (php_stream_eof(intern->u.file.stream)) {\n \t\tif (!silent) {\n \t\t\tzend_throw_exception_ex(spl_ce_RuntimeException, 0 TSRMLS_CC, \"Cannot read from file %s\", intern->file_name);\n\t\t}\n\t\treturn FAILURE;\n\t}\n\n\tif (intern->u.file.max_line_len > 0) {\n\t\tbuf = safe_emalloc((intern->u.file.max_line_len + 1), sizeof(char), 0);\n\t\tif (php_stream_get_line(intern->u.file.stream, buf, intern->u.file.max_line_len + 1, &line_len) == NULL) {\n\t\t\tefree(buf);\n\t\t\tbuf = NULL;\n\t\t} else {\n\t\t\tbuf[line_len] = '\\0';\n\t\t}\n\t} else {\n\t\tbuf = php_stream_get_line(intern->u.file.stream, NULL, 0, &line_len);\n\t}\n\n\tif (!buf) {\n\t\tintern->u.file.current_line = estrdup(\"\");\n\t\tintern->u.file.current_line_len = 0;\n\t} else {\n\t\tif (SPL_HAS_FLAG(intern->flags, SPL_FILE_OBJECT_DROP_NEW_LINE)) {\n \t\t\tline_len = strcspn(buf, \"\\r\\n\");\n \t\t\tbuf[line_len] = '\\0';\n \t\t}\n \t\tintern->u.file.current_line = buf;\n \t\tintern->u.file.current_line_len = line_len;\n \t}\n\tintern->u.file.current_line_num += line_add;\n\n\treturn SUCCESS;\n} /* }}} */\n",
+        "llama3.1 Summary": "The patch fixes an integer overflow vulnerability in the `spl_filesystem_file_read` function by adding bounds checking to prevent overflow when calculating the maximum line length. This was done to prevent a potential buffer overflow attack that could lead to arbitrary code execution. Fixed version of function: static int spl_filesystem_file_read(spl_filesystem_object *intern, int silent TSRMLS_DC) /* {{{ */\n{\n\tchar *buf;\n\tsize_t line_len = 0;\n \tlong line_add = (intern->u.file.current_line || intern->u.file.current_zval) ? 1 : 0;\n \n \tspl_filesystem_file_free_line(intern TSRMLS_CC);\n\n \tif (php_stream_eof(intern->u.file.stream)) {\n \t\tif (!silent) {\n \t\t\tzend_throw_exception_ex(spl_ce_RuntimeException, 0 TSRMLS_CC, \"Cannot read from file %s\", intern->file_name);\n\t\t}\n\t\treturn FAILURE;\n\t}\n\n\tif (intern->u.file.max_line_len > 0 && (size_t)(intern->u.file.max_line_len + 1) >= SIZE_MAX / sizeof(char)) {\n\t\tzend_throw_exception_ex(spl_ce_RuntimeException, 0 TSRMLS_CC, \"Maximum line length exceeded\");\n\t\treturn FAILURE;\n\t}\n\n\tif (intern->u.file.max_line_len > 0) {\n\t\tbuf = safe_emalloc((intern->u.file.max_line_len + 1), sizeof(char), 0);\n\t\tif (php_stream_get_line(intern->u.file.stream, buf, intern->u.file.max_line_len + 1, &line_len) == NULL) {\n\t\t\tefree(buf);\n\t\t\tbuf = NULL;\n\t\t} else {\n\t\t\tbuf[line_len] = '\\0';\n\t\t}\n\t} else {\n\t\tbuf = php_stream_get_line(intern->u.file.stream, NULL, 0, &line_len);\n\t}\n\n\tif (!buf) {\n\t\tintern->u.file.current_line = estrdup(\"\");\n\t\tintern->u.file.current_line_len = 0;\n\t} else {\n\t\tif (SPL_HAS_FLAG(intern->flags, SPL_FILE_OBJECT_DROP_NEW_LINE)) {\n \t\t\tline_len = strcspn(buf, \"\\r\\n\");\n \t\t\tbuf[line_len] = '\\0';\n \t\t}\n\n \t\tintern->u.file.current_line = buf;\n \t\tintern->u.file.current_line_len = line_len;\n \t}\n\tintern->u.file.current_line_num += line_add;\n\n\treturn SUCCESS;\n} /* }}} */",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2011-1428",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.3289",
+            "BERTScore Recall": "0.4678",
+            "BERTScore F1": "0.3862"
+        },
+        "llama3.1 Cosine_Similarity": 0.6983875632286072,
+        "Mistral Summary": "The patch changes the way data is read from the input stream, ensuring that it does not exceed the buffer size. This prevents potential buffer overflow due to reading beyond the allocated space in the 'buf' variable.",
+        "Mistral CWE": "CWE-190 (Buffer Overflow)",
+        "Mistral CVE": "Not provided in the given information. It should be assigned by a recognized authority such as MITRE's Common Vulnerabilities and Exposures (CVE) program.",
+        "Mistral Cosine_Similarity": 0.3478773832321167,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.5561",
+            "BERTScore Recall": "0.4891",
+            "BERTScore F1": "0.5205"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "num": 3,
+        "codeLink": "https://github.com/php/php-src/commit/7245bff300d3fa8bacbef7897ff080a6f1c23eba?w=1",
+        "CVE ID": "CVE-2016-5770",
+        "CVE Details": "Integer overflow in the SplFileObject::fread function in spl_directory.c in the SPL extension in PHP before 5.5.37 and 5.6.x before 5.6.23 allows remote attackers to cause a denial of service or possibly have unspecified other impact via a large integer argument, a related issue to CVE-2016-5096.",
+        "CWE ID": "CWE-190",
+        "commit_message": "Fix bug #72262 - do not overflow int",
+        "fixed_function": " SPL_METHOD(SplFileObject, current)\n {\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n\n\tif (!intern->u.file.current_line && !intern->u.file.current_zval) {\n\t\tspl_filesystem_file_read_line(getThis(), intern, 1 TSRMLS_CC);\n\t}\n\tif (intern->u.file.current_line && (!SPL_HAS_FLAG(intern->flags, SPL_FILE_OBJECT_READ_CSV) || !intern->u.file.current_zval)) {\n\t\tRETURN_STRINGL(intern->u.file.current_line, intern->u.file.current_line_len, 1);\n\t} else if (intern->u.file.current_zval) {\n\t\tRETURN_ZVAL(intern->u.file.current_zval, 1, 0);\n\t}\n\tRETURN_FALSE;\n} /* }}} */\n\n/* {{{ proto int SplFileObject::key()\n",
+        "vul_function": " SPL_METHOD(SplFileObject, current)\n {\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n\n\tif (!intern->u.file.current_line && !intern->u.file.current_zval) {\n\t\tspl_filesystem_file_read_line(getThis(), intern, 1 TSRMLS_CC);\n\t}\n\tif (intern->u.file.current_line && (!SPL_HAS_FLAG(intern->flags, SPL_FILE_OBJECT_READ_CSV) || !intern->u.file.current_zval)) {\n\t\tRETURN_STRINGL(intern->u.file.current_line, intern->u.file.current_line_len, 1);\n\t} else if (intern->u.file.current_zval) {\n\t\tRETURN_ZVAL(intern->u.file.current_zval, 1, 0);\n\t}\n\tRETURN_FALSE;\n} /* }}} */\n\n/* {{{ proto int SplFileObject::key()\n",
+        "llama3.1 Summary": "The patch adds a check to prevent an integer overflow when calculating the current line number, ensuring that the returned value is within the valid range for an int. This fix was applied to resolve bug #72262, which caused incorrect behavior and potential crashes due to integer overflows in certain edge cases. Fixed version of function: SPL_METHOD(SplFileObject, current)",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2012-2313",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.6126",
+            "BERTScore Recall": "0.5911",
+            "BERTScore F1": "0.6016"
+        },
+        "llama3.1 Cosine_Similarity": 0.617002546787262,
+        "Mistral Summary": "The patch changes the function to prevent integer overflow by ensuring that the result of an operation does not exceed the maximum representable value for its data type. This was applied to fix a potential issue where an int variable could overflow if certain conditions were met.",
+        "Mistral CWE": "CWE-190 (Integer Overflow or Wraparound)",
+        "Mistral CVE": "CVE-XXXX-XXXX (Cannot be determined without knowing more details, such as timestamp and unique identifier assigned by the responsible disclosure coordination body)",
+        "Mistral Cosine_Similarity": 0.5018458962440491,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.5654",
+            "BERTScore Recall": "0.4923",
+            "BERTScore F1": "0.5263"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "num": 4,
+        "codeLink": "https://github.com/mdadams/jasper/commit/d42b2388f7f8e0332c846675133acea151fc557a",
+        "CVE ID": "CVE-2016-9557",
+        "CVE Details": "Integer overflow in jas_image.c in JasPer before 1.900.25 allows remote attackers to cause a denial of service (application crash) via a crafted file.",
+        "CWE ID": "CWE-190",
+        "commit_message": "The generation of the configuration file jas_config.h has been completely\nreworked in order to avoid pollution of the global namespace.\n\nSome problematic types like uchar, ulong, and friends have been replaced\nwith names with a jas_ prefix.\n\nAn option max_samples has been added to the BMP and JPEG decoders to\nrestrict the maximum size of image that they can decode.  This change\nwas made as a (possibly temporary) fix to address security concerns.\nA max_samples command-line option has also been added to imginfo.\n\nWhether an image component (for jas_image_t) is stored in memory or on\ndisk is now based on the component size (rather than the image size).\n\nSome debug log message were added.\n\nSome new integer overflow checks were added.\n\nSome new safe integer add/multiply functions were added.\n\nMore pre-C99 cruft was removed.  JasPer has numerous \"hacks\" to\nhandle pre-C99 compilers.  JasPer now assumes C99 support.  So, this\npre-C99 cruft is unnecessary and can be removed.\n\nThe regression jasper-doublefree-mem_close.jpg has been re-enabled.\nTheoretically, it should work more predictably now.",
+        "fixed_function": " static int jas_iccgetuint64(jas_stream_t *in, jas_iccuint64_t *val)\n {\n\tjas_ulonglong tmp;\n \tif (jas_iccgetuint(in, 8, &tmp))\n \t\treturn -1;\n \t*val = tmp;\n \treturn 0;\n }\n",
+        "vul_function": " static int jas_iccgetuint64(jas_stream_t *in, jas_iccuint64_t *val)\n {\n\tulonglong tmp;\n \tif (jas_iccgetuint(in, 8, &tmp))\n \t\treturn -1;\n \t*val = tmp;\n \treturn 0;\n }\n",
+        "llama3.1 Summary": "The patch changes the type of variable tmp from ulonglong to jas_ulonglong to prevent integer overflows when assigning the result of jas_iccgetuint to tmp. This change was applied due to security concerns related to potential integer overflows in the code.\n\nFixed version of function:  static int jas_iccgetuint64(jas_stream_t *in, jas_iccuint64_t *val)\n {\n\tjas_ulonglong tmp;\n \tif (jas_iccgetuint(in, 8, &tmp))\n \t\treturn -1;\n \t*val = tmp;\n \treturn 0;\n }",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2012-2774",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.3907",
+            "BERTScore Recall": "0.5503",
+            "BERTScore F1": "0.4570"
+        },
+        "llama3.1 Cosine_Similarity": 0.4754832983016968,
+        "Mistral Summary": "The patch adds new integer overflow checks to prevent potential overflow errors that could occur in the jas_iccgetuint64 function due to improper handling of large input values. This change addresses security concerns by mitigating potential exploitation of such overflow errors.",
+        "Mistral CWE": "CWE-190 (Integer Overflow)",
+        "Mistral CVE": "Not provided as the CVE database assigns unique identifiers to vulnerabilities in a product, not code changes, and this change does not affect any specific product.",
+        "Mistral Cosine_Similarity": 0.610324501991272,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.5887",
+            "BERTScore Recall": "0.6251",
+            "BERTScore F1": "0.6063"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/uclouvain/openjpeg/pull/1168/commits/c58df149900df862806d0e892859b41115875845",
+        "CVE ID": "CVE-2018-20847",
+        "CVE Details": "An improper computation of p_tx0, p_tx1, p_ty0 and p_ty1 in the function opj_get_encoding_parameters in openjp2/pi.c in OpenJPEG through 2.3.0 can lead to an integer overflow.",
+        "CWE ID": "CWE-190",
+        "commit_message": "[OPENJP2] change the way to compute *p_tx0, *p_tx1, *p_ty0, *p_ty1 in function\nopj_get_encoding_parameters\n\nSigned-off-by: Young_X <YangX92@hotmail.com>",
+        "fixed_function": "static void opj_get_encoding_parameters(const opj_image_t *p_image,\n                                        const opj_cp_t *p_cp,\n                                        OPJ_UINT32 p_tileno,\n                                        OPJ_INT32 * p_tx0,\n                                        OPJ_INT32  * p_tx1,\n                                        OPJ_INT32  * p_ty0,\n                                        OPJ_INT32  * p_ty1,\n                                        OPJ_UINT32 * p_dx_min,\n                                        OPJ_UINT32 * p_dy_min,\n                                        OPJ_UINT32 * p_max_prec,\n                                        OPJ_UINT32 * p_max_res)\n{\n    /* loop */\n    OPJ_UINT32  compno, resno;\n    /* pointers */\n    const opj_tcp_t *l_tcp = 00;\n    const opj_tccp_t * l_tccp = 00;\n    const opj_image_comp_t * l_img_comp = 00;\n\n     /* position in x and y of tile */\n     OPJ_UINT32 p, q;\n \n    /* non-corrected (in regard to image offset) tile offset */\n    OPJ_UINT32 l_tx0, l_ty0;\n\n     /* preconditions */\n     assert(p_cp != 00);\n     assert(p_image != 00);\n    assert(p_tileno < p_cp->tw * p_cp->th);\n\n    /* initializations */\n    l_tcp = &p_cp->tcps [p_tileno];\n    l_img_comp = p_image->comps;\n    l_tccp = l_tcp->tccps;\n\n    /* here calculation of tx0, tx1, ty0, ty1, maxprec, dx and dy */\n    p = p_tileno % p_cp->tw;\n     q = p_tileno / p_cp->tw;\n \n     /* find extent of tile */\n    l_tx0 = p_cp->tx0 + p *\n            p_cp->tdx; /* can't be greater than p_image->x1 so won't overflow */\n    *p_tx0 = (OPJ_INT32)opj_uint_max(l_tx0, p_image->x0);\n    *p_tx1 = (OPJ_INT32)opj_uint_min(opj_uint_adds(l_tx0, p_cp->tdx), p_image->x1);\n    l_ty0 = p_cp->ty0 + q *\n            p_cp->tdy; /* can't be greater than p_image->y1 so won't overflow */\n    *p_ty0 = (OPJ_INT32)opj_uint_max(l_ty0, p_image->y0);\n    *p_ty1 = (OPJ_INT32)opj_uint_min(opj_uint_adds(l_ty0, p_cp->tdy), p_image->y1);\n \n     /* max precision is 0 (can only grow) */\n     *p_max_prec = 0;\n    *p_max_res = 0;\n\n    /* take the largest value for dx_min and dy_min */\n    *p_dx_min = 0x7fffffff;\n    *p_dy_min  = 0x7fffffff;\n\n    for (compno = 0; compno < p_image->numcomps; ++compno) {\n        /* arithmetic variables to calculate */\n        OPJ_UINT32 l_level_no;\n        OPJ_INT32 l_rx0, l_ry0, l_rx1, l_ry1;\n        OPJ_INT32 l_px0, l_py0, l_px1, py1;\n        OPJ_UINT32 l_pdx, l_pdy;\n        OPJ_UINT32 l_pw, l_ph;\n        OPJ_UINT32 l_product;\n        OPJ_INT32 l_tcx0, l_tcy0, l_tcx1, l_tcy1;\n\n        l_tcx0 = opj_int_ceildiv(*p_tx0, (OPJ_INT32)l_img_comp->dx);\n        l_tcy0 = opj_int_ceildiv(*p_ty0, (OPJ_INT32)l_img_comp->dy);\n        l_tcx1 = opj_int_ceildiv(*p_tx1, (OPJ_INT32)l_img_comp->dx);\n        l_tcy1 = opj_int_ceildiv(*p_ty1, (OPJ_INT32)l_img_comp->dy);\n\n        if (l_tccp->numresolutions > *p_max_res) {\n            *p_max_res = l_tccp->numresolutions;\n        }\n\n        /* use custom size for precincts */\n        for (resno = 0; resno < l_tccp->numresolutions; ++resno) {\n            OPJ_UINT32 l_dx, l_dy;\n\n            /* precinct width and height */\n            l_pdx = l_tccp->prcw[resno];\n            l_pdy = l_tccp->prch[resno];\n\n            l_dx = l_img_comp->dx * (1u << (l_pdx + l_tccp->numresolutions - 1 - resno));\n            l_dy = l_img_comp->dy * (1u << (l_pdy + l_tccp->numresolutions - 1 - resno));\n\n            /* take the minimum size for dx for each comp and resolution */\n            *p_dx_min = opj_uint_min(*p_dx_min, l_dx);\n            *p_dy_min = opj_uint_min(*p_dy_min, l_dy);\n\n            /* various calculations of extents */\n            l_level_no = l_tccp->numresolutions - 1 - resno;\n\n            l_rx0 = opj_int_ceildivpow2(l_tcx0, (OPJ_INT32)l_level_no);\n            l_ry0 = opj_int_ceildivpow2(l_tcy0, (OPJ_INT32)l_level_no);\n            l_rx1 = opj_int_ceildivpow2(l_tcx1, (OPJ_INT32)l_level_no);\n            l_ry1 = opj_int_ceildivpow2(l_tcy1, (OPJ_INT32)l_level_no);\n\n            l_px0 = opj_int_floordivpow2(l_rx0, (OPJ_INT32)l_pdx) << l_pdx;\n            l_py0 = opj_int_floordivpow2(l_ry0, (OPJ_INT32)l_pdy) << l_pdy;\n            l_px1 = opj_int_ceildivpow2(l_rx1, (OPJ_INT32)l_pdx) << l_pdx;\n\n            py1 = opj_int_ceildivpow2(l_ry1, (OPJ_INT32)l_pdy) << l_pdy;\n\n            l_pw = (l_rx0 == l_rx1) ? 0 : (OPJ_UINT32)((l_px1 - l_px0) >> l_pdx);\n            l_ph = (l_ry0 == l_ry1) ? 0 : (OPJ_UINT32)((py1 - l_py0) >> l_pdy);\n\n            l_product = l_pw * l_ph;\n\n            /* update precision */\n            if (l_product > *p_max_prec) {\n                *p_max_prec = l_product;\n            }\n        }\n        ++l_img_comp;\n        ++l_tccp;\n    }\n}\n",
+        "vul_function": "static void opj_get_encoding_parameters(const opj_image_t *p_image,\n                                        const opj_cp_t *p_cp,\n                                        OPJ_UINT32 p_tileno,\n                                        OPJ_INT32 * p_tx0,\n                                        OPJ_INT32  * p_tx1,\n                                        OPJ_INT32  * p_ty0,\n                                        OPJ_INT32  * p_ty1,\n                                        OPJ_UINT32 * p_dx_min,\n                                        OPJ_UINT32 * p_dy_min,\n                                        OPJ_UINT32 * p_max_prec,\n                                        OPJ_UINT32 * p_max_res)\n{\n    /* loop */\n    OPJ_UINT32  compno, resno;\n    /* pointers */\n    const opj_tcp_t *l_tcp = 00;\n    const opj_tccp_t * l_tccp = 00;\n    const opj_image_comp_t * l_img_comp = 00;\n\n     /* position in x and y of tile */\n     OPJ_UINT32 p, q;\n \n     /* preconditions */\n     assert(p_cp != 00);\n     assert(p_image != 00);\n    assert(p_tileno < p_cp->tw * p_cp->th);\n\n    /* initializations */\n    l_tcp = &p_cp->tcps [p_tileno];\n    l_img_comp = p_image->comps;\n    l_tccp = l_tcp->tccps;\n\n    /* here calculation of tx0, tx1, ty0, ty1, maxprec, dx and dy */\n    p = p_tileno % p_cp->tw;\n     q = p_tileno / p_cp->tw;\n \n     /* find extent of tile */\n    *p_tx0 = opj_int_max((OPJ_INT32)(p_cp->tx0 + p * p_cp->tdx),\n                         (OPJ_INT32)p_image->x0);\n    *p_tx1 = opj_int_min((OPJ_INT32)(p_cp->tx0 + (p + 1) * p_cp->tdx),\n                         (OPJ_INT32)p_image->x1);\n    *p_ty0 = opj_int_max((OPJ_INT32)(p_cp->ty0 + q * p_cp->tdy),\n                         (OPJ_INT32)p_image->y0);\n    *p_ty1 = opj_int_min((OPJ_INT32)(p_cp->ty0 + (q + 1) * p_cp->tdy),\n                         (OPJ_INT32)p_image->y1);\n \n     /* max precision is 0 (can only grow) */\n     *p_max_prec = 0;\n    *p_max_res = 0;\n\n    /* take the largest value for dx_min and dy_min */\n    *p_dx_min = 0x7fffffff;\n    *p_dy_min  = 0x7fffffff;\n\n    for (compno = 0; compno < p_image->numcomps; ++compno) {\n        /* arithmetic variables to calculate */\n        OPJ_UINT32 l_level_no;\n        OPJ_INT32 l_rx0, l_ry0, l_rx1, l_ry1;\n        OPJ_INT32 l_px0, l_py0, l_px1, py1;\n        OPJ_UINT32 l_pdx, l_pdy;\n        OPJ_UINT32 l_pw, l_ph;\n        OPJ_UINT32 l_product;\n        OPJ_INT32 l_tcx0, l_tcy0, l_tcx1, l_tcy1;\n\n        l_tcx0 = opj_int_ceildiv(*p_tx0, (OPJ_INT32)l_img_comp->dx);\n        l_tcy0 = opj_int_ceildiv(*p_ty0, (OPJ_INT32)l_img_comp->dy);\n        l_tcx1 = opj_int_ceildiv(*p_tx1, (OPJ_INT32)l_img_comp->dx);\n        l_tcy1 = opj_int_ceildiv(*p_ty1, (OPJ_INT32)l_img_comp->dy);\n\n        if (l_tccp->numresolutions > *p_max_res) {\n            *p_max_res = l_tccp->numresolutions;\n        }\n\n        /* use custom size for precincts */\n        for (resno = 0; resno < l_tccp->numresolutions; ++resno) {\n            OPJ_UINT32 l_dx, l_dy;\n\n            /* precinct width and height */\n            l_pdx = l_tccp->prcw[resno];\n            l_pdy = l_tccp->prch[resno];\n\n            l_dx = l_img_comp->dx * (1u << (l_pdx + l_tccp->numresolutions - 1 - resno));\n            l_dy = l_img_comp->dy * (1u << (l_pdy + l_tccp->numresolutions - 1 - resno));\n\n            /* take the minimum size for dx for each comp and resolution */\n            *p_dx_min = opj_uint_min(*p_dx_min, l_dx);\n            *p_dy_min = opj_uint_min(*p_dy_min, l_dy);\n\n            /* various calculations of extents */\n            l_level_no = l_tccp->numresolutions - 1 - resno;\n\n            l_rx0 = opj_int_ceildivpow2(l_tcx0, (OPJ_INT32)l_level_no);\n            l_ry0 = opj_int_ceildivpow2(l_tcy0, (OPJ_INT32)l_level_no);\n            l_rx1 = opj_int_ceildivpow2(l_tcx1, (OPJ_INT32)l_level_no);\n            l_ry1 = opj_int_ceildivpow2(l_tcy1, (OPJ_INT32)l_level_no);\n\n            l_px0 = opj_int_floordivpow2(l_rx0, (OPJ_INT32)l_pdx) << l_pdx;\n            l_py0 = opj_int_floordivpow2(l_ry0, (OPJ_INT32)l_pdy) << l_pdy;\n            l_px1 = opj_int_ceildivpow2(l_rx1, (OPJ_INT32)l_pdx) << l_pdx;\n\n            py1 = opj_int_ceildivpow2(l_ry1, (OPJ_INT32)l_pdy) << l_pdy;\n\n            l_pw = (l_rx0 == l_rx1) ? 0 : (OPJ_UINT32)((l_px1 - l_px0) >> l_pdx);\n            l_ph = (l_ry0 == l_ry1) ? 0 : (OPJ_UINT32)((py1 - l_py0) >> l_pdy);\n\n            l_product = l_pw * l_ph;\n\n            /* update precision */\n            if (l_product > *p_max_prec) {\n                *p_max_prec = l_product;\n            }\n        }\n        ++l_img_comp;\n        ++l_tccp;\n    }\n}\n",
+        "llama3.1 Summary": null,
+        "llama3.1 CWE": null,
+        "llama3.1 CVE": null,
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.3119",
+            "BERTScore Recall": "0.2301",
+            "BERTScore F1": "0.2648"
+        },
+        "llama3.1 Cosine_Similarity": 0.12153106927871704,
+        "Mistral Summary": null,
+        "Mistral CWE": null,
+        "Mistral CVE": null,
+        "Mistral Cosine_Similarity": 0.12153106927871704,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.3119",
+            "BERTScore Recall": "0.2301",
+            "BERTScore F1": "0.2648"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/mdadams/jasper/commit/d42b2388f7f8e0332c846675133acea151fc557a",
+        "CVE ID": "CVE-2016-9557",
+        "CVE Details": "Integer overflow in jas_image.c in JasPer before 1.900.25 allows remote attackers to cause a denial of service (application crash) via a crafted file.",
+        "CWE ID": "CWE-190",
+        "commit_message": "The generation of the configuration file jas_config.h has been completely\nreworked in order to avoid pollution of the global namespace.\n\nSome problematic types like uchar, ulong, and friends have been replaced\nwith names with a jas_ prefix.\n\nAn option max_samples has been added to the BMP and JPEG decoders to\nrestrict the maximum size of image that they can decode.  This change\nwas made as a (possibly temporary) fix to address security concerns.\nA max_samples command-line option has also been added to imginfo.\n\nWhether an image component (for jas_image_t) is stored in memory or on\ndisk is now based on the component size (rather than the image size).\n\nSome debug log message were added.\n\nSome new integer overflow checks were added.\n\nSome new safe integer add/multiply functions were added.\n\nMore pre-C99 cruft was removed.  JasPer has numerous \"hacks\" to\nhandle pre-C99 compilers.  JasPer now assumes C99 support.  So, this\npre-C99 cruft is unnecessary and can be removed.\n\nThe regression jasper-doublefree-mem_close.jpg has been re-enabled.\nTheoretically, it should work more predictably now.",
+        "fixed_function": " int pnm_validate(jas_stream_t *in)\n {\n\tjas_uchar buf[2];\n \tint i;\n \tint n;\n \n\tassert(JAS_STREAM_MAXPUTBACK >= 2);\n\n\t/* Read the first two characters that constitute the signature. */\n\tif ((n = jas_stream_read(in, buf, 2)) < 0) {\n\t\treturn -1;\n\t}\n\t/* Put these characters back to the stream. */\n\tfor (i = n - 1; i >= 0; --i) {\n\t\tif (jas_stream_ungetc(in, buf[i]) == EOF) {\n\t\t\treturn -1;\n\t\t}\n\t}\n\t/* Did we read enough data? */\n\tif (n < 2) {\n\t\treturn -1;\n\t}\n\t/* Is this the correct signature for a PNM file? */\n\tif (buf[0] == 'P' && isdigit(buf[1])) {\n\t\treturn 0;\n\t}\n\treturn -1;\n}\n",
+        "vul_function": " int pnm_validate(jas_stream_t *in)\n {\n\tuchar buf[2];\n \tint i;\n \tint n;\n \n\tassert(JAS_STREAM_MAXPUTBACK >= 2);\n\n\t/* Read the first two characters that constitute the signature. */\n\tif ((n = jas_stream_read(in, buf, 2)) < 0) {\n\t\treturn -1;\n\t}\n\t/* Put these characters back to the stream. */\n\tfor (i = n - 1; i >= 0; --i) {\n\t\tif (jas_stream_ungetc(in, buf[i]) == EOF) {\n\t\t\treturn -1;\n\t\t}\n\t}\n\t/* Did we read enough data? */\n\tif (n < 2) {\n\t\treturn -1;\n\t}\n\t/* Is this the correct signature for a PNM file? */\n\tif (buf[0] == 'P' && isdigit(buf[1])) {\n\t\treturn 0;\n\t}\n\treturn -1;\n}\n",
+        "llama3.1 Summary": "The patch adds a check to prevent integer overflow in the calculation of component size, which can lead to a buffer overflow and potentially allow an attacker to execute arbitrary code. This fix is necessary because without it, JasPer would incorrectly calculate the size of image components, leading to potential security issues.\n\nFixed version of function:  int pnm_validate(jas_stream_t *in)\n {\n\tjas_uchar buf[2];\n \tint i;\n \tint n;\n \n\tassert(JAS_STREAM_MAXPUTBACK >= 2);\n\n\t/* Read the first two characters that constitute the signature. */\n\tif ((n = jas_stream_read(in, buf, 2)) < 0) {\n\t\treturn -1;\n\t}\n\t/* Put these characters back to the stream. */\n\tfor (i = n - 1; i >= 0; --i) {\n\t\tif (jas_stream_ungetc(in, buf[i]) == EOF) {\n\t\t\treturn -1;\n\t\t}\n\t}\n\t/* Did we read enough data? */\n\tif (n < 2) {\n\t\treturn -1;\n\t}\n\t/* Is this the correct signature for a PNM file? */\n\tif (buf[0] == 'P' && isdigit(buf[1])) {\n\t\treturn 0;\n\t}\n\treturn -1;\n}",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2010-4492",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.3609",
+            "BERTScore Recall": "0.6264",
+            "BERTScore F1": "0.4580"
+        },
+        "llama3.1 Cosine_Similarity": 0.6056516170501709,
+        "Mistral Summary": "The patch changes include the addition of new integer overflow checks and safe integer add/multiply functions, which are intended to prevent buffer overflow vulnerabilities. The modification was applied in response to security concerns raised about the maximum size of images that can be decoded by the BMP and JPEG decoders.",
+        "Mistral CWE": "CWE-134 (Buffer Overflow)",
+        "Mistral CVE": "Unavailable as the commit message does not specify a particular vulnerability or its impact",
+        "Mistral Cosine_Similarity": 0.4601472020149231,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.5640",
+            "BERTScore Recall": "0.5879",
+            "BERTScore F1": "0.5757"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "num": 5,
+        "codeLink": "https://github.com/php/php-src/commit/7245bff300d3fa8bacbef7897ff080a6f1c23eba?w=1",
+        "CVE ID": "CVE-2016-5770",
+        "CVE Details": "Integer overflow in the SplFileObject::fread function in spl_directory.c in the SPL extension in PHP before 5.5.37 and 5.6.x before 5.6.23 allows remote attackers to cause a denial of service or possibly have unspecified other impact via a large integer argument, a related issue to CVE-2016-5096.",
+        "CWE ID": "CWE-190",
+        "commit_message": "Fix bug #72262 - do not overflow int",
+        "fixed_function": "zend_object_iterator *spl_filesystem_tree_get_iterator(zend_class_entry *ce, zval *object, int by_ref TSRMLS_DC)\n{\n\tspl_filesystem_iterator *iterator;\n\tspl_filesystem_object *dir_object;\n\n\tif (by_ref) {\n\t\tzend_error(E_ERROR, \"An iterator cannot be used with foreach by reference\");\n\t}\n\tdir_object = (spl_filesystem_object*)zend_object_store_get_object(object TSRMLS_CC);\n\titerator   = spl_filesystem_object_to_iterator(dir_object);\n\n\t/* initialize iterator if wasn't gotten before */\n\tif (iterator->intern.data == NULL) {\n\t\titerator->intern.data = object;\n \t\titerator->intern.funcs = &spl_filesystem_tree_it_funcs;\n \t}\n \tzval_add_ref(&object);\n\n \treturn (zend_object_iterator*)iterator;\n }\n",
+        "vul_function": "zend_object_iterator *spl_filesystem_tree_get_iterator(zend_class_entry *ce, zval *object, int by_ref TSRMLS_DC)\n{\n\tspl_filesystem_iterator *iterator;\n\tspl_filesystem_object *dir_object;\n\n\tif (by_ref) {\n\t\tzend_error(E_ERROR, \"An iterator cannot be used with foreach by reference\");\n\t}\n\tdir_object = (spl_filesystem_object*)zend_object_store_get_object(object TSRMLS_CC);\n\titerator   = spl_filesystem_object_to_iterator(dir_object);\n\n\t/* initialize iterator if wasn't gotten before */\n\tif (iterator->intern.data == NULL) {\n\t\titerator->intern.data = object;\n \t\titerator->intern.funcs = &spl_filesystem_tree_it_funcs;\n \t}\n \tzval_add_ref(&object);\n \treturn (zend_object_iterator*)iterator;\n }\n",
+        "llama3.1 Summary": "The patch changes the return type of the function to correctly reflect that it should not return an iterator by reference. This was applied to prevent incorrect usage and unexpected behavior when trying to use the returned iterator with foreach by reference. Fixed version of function: zend_object_iterator *spl_filesystem_tree_get_iterator(zend_class_entry *ce, zval *object, int by_ref TSRMLS_DC)\n{\n\tspl_filesystem_iterator *iterator;\n\tspl_filesystem_object *dir_object;\n\n\tif (by_ref) {\n\t\tzend_error(E_ERROR, \"An iterator cannot be used with foreach by reference\");\n\t}\n\tdir_object = (spl_filesystem_object*)zend_object_store_get_object(object TSRMLS_CC);\n\titerator   = spl_filesystem_object_to_iterator(dir_object);\n\n\t/* initialize iterator if wasn't gotten before */\n\tif (iterator->intern.data == NULL) {\n\t\titerator->intern.data = object;\n \t\titerator->intern.funcs = &spl_filesystem_tree_it_funcs;\n \t}\n \tzval_add_ref(&object);\n\n \treturn (zend_object_iterator*)iterator;\n }",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2010-0834",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.3829",
+            "BERTScore Recall": "0.4978",
+            "BERTScore F1": "0.4329"
+        },
+        "llama3.1 Cosine_Similarity": 0.43707311153411865,
+        "Mistral Summary": "The patch changes the initialization of `iterator->intern.data` to assign it only once, preventing integer overflow in subsequent calls when multiple objects try to use the same iterator. This fix addresses a potential buffer overflow issue that could have been exploited.",
+        "Mistral CWE": "CWE-190",
+        "Mistral CVE": "CVE-2021-XXXX-XXXX (assuming a new CVE will be assigned for this vulnerability)",
+        "Mistral Cosine_Similarity": 0.4300881624221802,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.5932",
+            "BERTScore Recall": "0.5266",
+            "BERTScore F1": "0.5579"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/php/php-src/commit/7245bff300d3fa8bacbef7897ff080a6f1c23eba?w=1",
+        "CVE ID": "CVE-2016-5770",
+        "CVE Details": "Integer overflow in the SplFileObject::fread function in spl_directory.c in the SPL extension in PHP before 5.5.37 and 5.6.x before 5.6.23 allows remote attackers to cause a denial of service or possibly have unspecified other impact via a large integer argument, a related issue to CVE-2016-5096.",
+        "CWE ID": "CWE-190",
+        "commit_message": "Fix bug #72262 - do not overflow int",
+        "fixed_function": " SPL_METHOD(DirectoryIterator, isDot)\n {\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n\n\tRETURN_BOOL(spl_filesystem_is_dot(intern->u.dir.entry.d_name));\n}\n",
+        "vul_function": " SPL_METHOD(DirectoryIterator, isDot)\n {\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n\n\tRETURN_BOOL(spl_filesystem_is_dot(intern->u.dir.entry.d_name));\n}\n",
+        "llama3.1 Summary": "The patch changes the function to correctly handle edge cases by adding a check for zend_parse_parameters_none(), which ensures that the function does not overflow an integer when dealing with large directory names. This was applied because failing to account for such edge cases could allow an attacker to cause a buffer overflow, potentially leading to arbitrary code execution.\n\nFixed version of function: SPL_METHOD(DirectoryIterator, isDot)\n {\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n\n\tRETURN_BOOL(spl_filesystem_is_dot(intern->u.dir.entry.d_name));\n}\n Vulnerable version of function: SPL_METHOD(DirectoryIterator, isDot)\n {\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n\n\tRETURN_BOOL(spl_filesystem_is_dot(intern->u.dir.entry.d_name));\n}",
+        "llama3.1 CWE": "CWE-194",
+        "llama3.1 CVE": "CVE-2011-2202",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.3917",
+            "BERTScore Recall": "0.5393",
+            "BERTScore F1": "0.4538"
+        },
+        "llama3.1 Cosine_Similarity": 0.7027125358581543,
+        "Mistral Summary": "The patch changes the usage of an integer variable to avoid overflow by ensuring it doesn't exceed its maximum capacity, thus preventing potential buffer overflows or related issues.",
+        "Mistral CWE": "CWE-190 (Integer Overflow)",
+        "Mistral CVE": "Not applicable, as no specific CVE ID was assigned for this vulnerability in the given context.",
+        "Mistral Cosine_Similarity": 0.4905533790588379,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.6218",
+            "BERTScore Recall": "0.5119",
+            "BERTScore F1": "0.5615"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/torvalds/linux/commit/b86e33075ed1909d8002745b56ecf73b833db143",
+        "CVE ID": "CVE-2017-18257",
+        "CVE Details": "The __get_data_block function in fs/f2fs/data.c in the Linux kernel before 4.11 allows local users to cause a denial of service (integer overflow and loop) via crafted use of the open and fallocate system calls with an FS_IOC_FIEMAP ioctl.",
+        "CWE ID": "CWE-190",
+        "commit_message": "f2fs: fix a dead loop in f2fs_fiemap()\n\nA dead loop can be triggered in f2fs_fiemap() using the test case\nas below:\n\n\t...\n\tfd = open();\n\tfallocate(fd, 0, 0, 4294967296);\n\tioctl(fd, FS_IOC_FIEMAP, fiemap_buf);\n\t...\n\nIt's caused by an overflow in __get_data_block():\n\t...\n\tbh->b_size = map.m_len << inode->i_blkbits;\n\t...\nmap.m_len is an unsigned int, and bh->b_size is a size_t which is 64 bits\non 64 bits archtecture, type conversion from an unsigned int to a size_t\nwill result in an overflow.\n\nIn the above-mentioned case, bh->b_size will be zero, and f2fs_fiemap()\nwill call get_data_block() at block 0 again an again.\n\nFix this by adding a force conversion before left shift.\n\nSigned-off-by: Wei Fang <fangwei1@huawei.com>\nAcked-by: Chao Yu <yuchao0@huawei.com>\nSigned-off-by: Jaegeuk Kim <jaegeuk@kernel.org>",
+        "fixed_function": "static int __get_data_block(struct inode *inode, sector_t iblock,\n\t\t\tstruct buffer_head *bh, int create, int flag,\n\t\t\tpgoff_t *next_pgofs)\n{\n\tstruct f2fs_map_blocks map;\n\tint err;\n\n\tmap.m_lblk = iblock;\n\tmap.m_len = bh->b_size >> inode->i_blkbits;\n\tmap.m_next_pgofs = next_pgofs;\n\n\terr = f2fs_map_blocks(inode, &map, create, flag);\n \tif (!err) {\n \t\tmap_bh(bh, inode->i_sb, map.m_pblk);\n \t\tbh->b_state = (bh->b_state & ~F2FS_MAP_FLAGS) | map.m_flags;\n\t\tbh->b_size = (u64)map.m_len << inode->i_blkbits;\n \t}\n \treturn err;\n }\n",
+        "vul_function": "static int __get_data_block(struct inode *inode, sector_t iblock,\n\t\t\tstruct buffer_head *bh, int create, int flag,\n\t\t\tpgoff_t *next_pgofs)\n{\n\tstruct f2fs_map_blocks map;\n\tint err;\n\n\tmap.m_lblk = iblock;\n\tmap.m_len = bh->b_size >> inode->i_blkbits;\n\tmap.m_next_pgofs = next_pgofs;\n\n\terr = f2fs_map_blocks(inode, &map, create, flag);\n \tif (!err) {\n \t\tmap_bh(bh, inode->i_sb, map.m_pblk);\n \t\tbh->b_state = (bh->b_state & ~F2FS_MAP_FLAGS) | map.m_flags;\n\t\tbh->b_size = map.m_len << inode->i_blkbits;\n \t}\n \treturn err;\n }\n",
+        "llama3.1 Summary": "The patch fixes a dead loop in f2fs_fiemap() by preventing an overflow when calculating bh->b_size, ensuring that the value is not zero. This was done to prevent infinite recursion and allow proper data retrieval from block 0. Fixed version of function: static int __get_data_block(struct inode *inode, sector_t iblock, struct buffer_head *bh, int create, int flag, pgoff_t *next_pgofs) { struct f2fs_map_blocks map; int err; map.m_lblk = iblock; map.m_len = bh->b_size >> inode->i_blkbits; map.m_next_pgofs = next_pgofs; err = f2fs_map_blocks(inode, &map, create, flag); if (!err) { map_bh(bh, inode->i_sb, map.m_pblk); bh->b_state = (bh->b_state & ~F2FS_MAP_FLAGS) | map.m_flags; bh->b_size = ((u64)map.m_len << inode->i_blkbits); } return err; }",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2022-0003",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.4360",
+            "BERTScore Recall": "0.5828",
+            "BERTScore F1": "0.4988"
+        },
+        "llama3.1 Cosine_Similarity": 0.5615441799163818,
+        "Mistral Summary": "The patch changes the operation of converting `map.m_len` to a size_t by adding an explicit type conversion before left shifting. This prevents potential integer overflow that could cause an infinite loop in f2fs_fiemap().",
+        "Mistral CWE": "CWE-199 (Integer Overflow or Wraparound)",
+        "Mistral CVE": "Not provided in the information given, as it depends on the project and version details.",
+        "Mistral Cosine_Similarity": 0.4121502637863159,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.6472",
+            "BERTScore Recall": "0.6244",
+            "BERTScore F1": "0.6356"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/torvalds/linux/commit/05692d7005a364add85c6e25a6c4447ce08f913a",
+        "CVE ID": "CVE-2016-9084",
+        "CVE Details": "drivers/vfio/pci/vfio_pci_intrs.c in the Linux kernel through 4.8.11 misuses the kzalloc function, which allows local users to cause a denial of service (integer overflow) or have unspecified other impact by leveraging access to a vfio PCI device file.",
+        "CWE ID": "CWE-190",
+        "commit_message": "vfio/pci: Fix integer overflows, bitmask check\n\nThe VFIO_DEVICE_SET_IRQS ioctl did not sufficiently sanitize\nuser-supplied integers, potentially allowing memory corruption. This\npatch adds appropriate integer overflow checks, checks the range bounds\nfor VFIO_IRQ_SET_DATA_NONE, and also verifies that only single element\nin the VFIO_IRQ_SET_DATA_TYPE_MASK bitmask is set.\nVFIO_IRQ_SET_ACTION_TYPE_MASK is already correctly checked later in\nvfio_pci_set_irqs_ioctl().\n\nFurthermore, a kzalloc is changed to a kcalloc because the use of a\nkzalloc with an integer multiplication allowed an integer overflow\ncondition to be reached without this patch. kcalloc checks for overflow\nand should prevent a similar occurrence.\n\nSigned-off-by: Vlad Tsyrklevich <vlad@tsyrklevich.net>\nSigned-off-by: Alex Williamson <alex.williamson@redhat.com>",
+        "fixed_function": "static long vfio_pci_ioctl(void *device_data,\n\t\t\t   unsigned int cmd, unsigned long arg)\n{\n\tstruct vfio_pci_device *vdev = device_data;\n\tunsigned long minsz;\n\n\tif (cmd == VFIO_DEVICE_GET_INFO) {\n\t\tstruct vfio_device_info info;\n\n\t\tminsz = offsetofend(struct vfio_device_info, num_irqs);\n\n\t\tif (copy_from_user(&info, (void __user *)arg, minsz))\n\t\t\treturn -EFAULT;\n\n\t\tif (info.argsz < minsz)\n\t\t\treturn -EINVAL;\n\n\t\tinfo.flags = VFIO_DEVICE_FLAGS_PCI;\n\n\t\tif (vdev->reset_works)\n\t\t\tinfo.flags |= VFIO_DEVICE_FLAGS_RESET;\n\n\t\tinfo.num_regions = VFIO_PCI_NUM_REGIONS + vdev->num_regions;\n\t\tinfo.num_irqs = VFIO_PCI_NUM_IRQS;\n\n\t\treturn copy_to_user((void __user *)arg, &info, minsz) ?\n\t\t\t-EFAULT : 0;\n\n\t} else if (cmd == VFIO_DEVICE_GET_REGION_INFO) {\n\t\tstruct pci_dev *pdev = vdev->pdev;\n\t\tstruct vfio_region_info info;\n\t\tstruct vfio_info_cap caps = { .buf = NULL, .size = 0 };\n\t\tint i, ret;\n\n\t\tminsz = offsetofend(struct vfio_region_info, offset);\n\n\t\tif (copy_from_user(&info, (void __user *)arg, minsz))\n\t\t\treturn -EFAULT;\n\n\t\tif (info.argsz < minsz)\n\t\t\treturn -EINVAL;\n\n\t\tswitch (info.index) {\n\t\tcase VFIO_PCI_CONFIG_REGION_INDEX:\n\t\t\tinfo.offset = VFIO_PCI_INDEX_TO_OFFSET(info.index);\n\t\t\tinfo.size = pdev->cfg_size;\n\t\t\tinfo.flags = VFIO_REGION_INFO_FLAG_READ |\n\t\t\t\t     VFIO_REGION_INFO_FLAG_WRITE;\n\t\t\tbreak;\n\t\tcase VFIO_PCI_BAR0_REGION_INDEX ... VFIO_PCI_BAR5_REGION_INDEX:\n\t\t\tinfo.offset = VFIO_PCI_INDEX_TO_OFFSET(info.index);\n\t\t\tinfo.size = pci_resource_len(pdev, info.index);\n\t\t\tif (!info.size) {\n\t\t\t\tinfo.flags = 0;\n\t\t\t\tbreak;\n\t\t\t}\n\n\t\t\tinfo.flags = VFIO_REGION_INFO_FLAG_READ |\n\t\t\t\t     VFIO_REGION_INFO_FLAG_WRITE;\n\t\t\tif (vdev->bar_mmap_supported[info.index]) {\n\t\t\t\tinfo.flags |= VFIO_REGION_INFO_FLAG_MMAP;\n\t\t\t\tif (info.index == vdev->msix_bar) {\n\t\t\t\t\tret = msix_sparse_mmap_cap(vdev, &caps);\n\t\t\t\t\tif (ret)\n\t\t\t\t\t\treturn ret;\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tbreak;\n\t\tcase VFIO_PCI_ROM_REGION_INDEX:\n\t\t{\n\t\t\tvoid __iomem *io;\n\t\t\tsize_t size;\n\n\t\t\tinfo.offset = VFIO_PCI_INDEX_TO_OFFSET(info.index);\n\t\t\tinfo.flags = 0;\n\n\t\t\t/* Report the BAR size, not the ROM size */\n\t\t\tinfo.size = pci_resource_len(pdev, info.index);\n\t\t\tif (!info.size) {\n\t\t\t\t/* Shadow ROMs appear as PCI option ROMs */\n\t\t\t\tif (pdev->resource[PCI_ROM_RESOURCE].flags &\n\t\t\t\t\t\t\tIORESOURCE_ROM_SHADOW)\n\t\t\t\t\tinfo.size = 0x20000;\n\t\t\t\telse\n\t\t\t\t\tbreak;\n\t\t\t}\n\n\t\t\t/* Is it really there? */\n\t\t\tio = pci_map_rom(pdev, &size);\n\t\t\tif (!io || !size) {\n\t\t\t\tinfo.size = 0;\n\t\t\t\tbreak;\n\t\t\t}\n\t\t\tpci_unmap_rom(pdev, io);\n\n\t\t\tinfo.flags = VFIO_REGION_INFO_FLAG_READ;\n\t\t\tbreak;\n\t\t}\n\t\tcase VFIO_PCI_VGA_REGION_INDEX:\n\t\t\tif (!vdev->has_vga)\n\t\t\t\treturn -EINVAL;\n\n\t\t\tinfo.offset = VFIO_PCI_INDEX_TO_OFFSET(info.index);\n\t\t\tinfo.size = 0xc0000;\n\t\t\tinfo.flags = VFIO_REGION_INFO_FLAG_READ |\n\t\t\t\t     VFIO_REGION_INFO_FLAG_WRITE;\n\n\t\t\tbreak;\n\t\tdefault:\n\t\t\tif (info.index >=\n\t\t\t    VFIO_PCI_NUM_REGIONS + vdev->num_regions)\n\t\t\t\treturn -EINVAL;\n\n\t\t\ti = info.index - VFIO_PCI_NUM_REGIONS;\n\n\t\t\tinfo.offset = VFIO_PCI_INDEX_TO_OFFSET(info.index);\n\t\t\tinfo.size = vdev->region[i].size;\n\t\t\tinfo.flags = vdev->region[i].flags;\n\n\t\t\tret = region_type_cap(vdev, &caps,\n\t\t\t\t\t      vdev->region[i].type,\n\t\t\t\t\t      vdev->region[i].subtype);\n\t\t\tif (ret)\n\t\t\t\treturn ret;\n\t\t}\n\n\t\tif (caps.size) {\n\t\t\tinfo.flags |= VFIO_REGION_INFO_FLAG_CAPS;\n\t\t\tif (info.argsz < sizeof(info) + caps.size) {\n\t\t\t\tinfo.argsz = sizeof(info) + caps.size;\n\t\t\t\tinfo.cap_offset = 0;\n\t\t\t} else {\n\t\t\t\tvfio_info_cap_shift(&caps, sizeof(info));\n\t\t\t\tif (copy_to_user((void __user *)arg +\n\t\t\t\t\t\t  sizeof(info), caps.buf,\n\t\t\t\t\t\t  caps.size)) {\n\t\t\t\t\tkfree(caps.buf);\n\t\t\t\t\treturn -EFAULT;\n\t\t\t\t}\n\t\t\t\tinfo.cap_offset = sizeof(info);\n\t\t\t}\n\n\t\t\tkfree(caps.buf);\n\t\t}\n\n\t\treturn copy_to_user((void __user *)arg, &info, minsz) ?\n\t\t\t-EFAULT : 0;\n\n\t} else if (cmd == VFIO_DEVICE_GET_IRQ_INFO) {\n\t\tstruct vfio_irq_info info;\n\n\t\tminsz = offsetofend(struct vfio_irq_info, count);\n\n\t\tif (copy_from_user(&info, (void __user *)arg, minsz))\n\t\t\treturn -EFAULT;\n\n\t\tif (info.argsz < minsz || info.index >= VFIO_PCI_NUM_IRQS)\n\t\t\treturn -EINVAL;\n\n\t\tswitch (info.index) {\n\t\tcase VFIO_PCI_INTX_IRQ_INDEX ... VFIO_PCI_MSIX_IRQ_INDEX:\n\t\tcase VFIO_PCI_REQ_IRQ_INDEX:\n\t\t\tbreak;\n\t\tcase VFIO_PCI_ERR_IRQ_INDEX:\n\t\t\tif (pci_is_pcie(vdev->pdev))\n\t\t\t\tbreak;\n\t\t/* pass thru to return error */\n\t\tdefault:\n\t\t\treturn -EINVAL;\n\t\t}\n\n\t\tinfo.flags = VFIO_IRQ_INFO_EVENTFD;\n\n\t\tinfo.count = vfio_pci_get_irq_count(vdev, info.index);\n\n\t\tif (info.index == VFIO_PCI_INTX_IRQ_INDEX)\n\t\t\tinfo.flags |= (VFIO_IRQ_INFO_MASKABLE |\n\t\t\t\t       VFIO_IRQ_INFO_AUTOMASKED);\n\t\telse\n\t\t\tinfo.flags |= VFIO_IRQ_INFO_NORESIZE;\n\n\t\treturn copy_to_user((void __user *)arg, &info, minsz) ?\n\t\t\t-EFAULT : 0;\n \n \t} else if (cmd == VFIO_DEVICE_SET_IRQS) {\n \t\tstruct vfio_irq_set hdr;\n\t\tsize_t size;\n \t\tu8 *data = NULL;\n\t\tint max, ret = 0;\n \n \t\tminsz = offsetofend(struct vfio_irq_set, count);\n \n \t\tif (copy_from_user(&hdr, (void __user *)arg, minsz))\n \t\t\treturn -EFAULT;\n \n \t\tif (hdr.argsz < minsz || hdr.index >= VFIO_PCI_NUM_IRQS ||\n\t\t    hdr.count >= (U32_MAX - hdr.start) ||\n \t\t    hdr.flags & ~(VFIO_IRQ_SET_DATA_TYPE_MASK |\n \t\t\t\t  VFIO_IRQ_SET_ACTION_TYPE_MASK))\n \t\t\treturn -EINVAL;\n \n\t\tmax = vfio_pci_get_irq_count(vdev, hdr.index);\n\t\tif (hdr.start >= max || hdr.start + hdr.count > max)\n\t\t\treturn -EINVAL;\n \n\t\tswitch (hdr.flags & VFIO_IRQ_SET_DATA_TYPE_MASK) {\n\t\tcase VFIO_IRQ_SET_DATA_NONE:\n\t\t\tsize = 0;\n\t\t\tbreak;\n\t\tcase VFIO_IRQ_SET_DATA_BOOL:\n\t\t\tsize = sizeof(uint8_t);\n\t\t\tbreak;\n\t\tcase VFIO_IRQ_SET_DATA_EVENTFD:\n\t\t\tsize = sizeof(int32_t);\n\t\t\tbreak;\n\t\tdefault:\n\t\t\treturn -EINVAL;\n\t\t}\n \n\t\tif (size) {\n\t\t\tif (hdr.argsz - minsz < hdr.count * size)\n \t\t\t\treturn -EINVAL;\n \n \t\t\tdata = memdup_user((void __user *)(arg + minsz),\n\t\t\t\t\t   hdr.count * size);\n\t\t\tif (IS_ERR(data))\n\t\t\t\treturn PTR_ERR(data);\n\t\t}\n\n\t\tmutex_lock(&vdev->igate);\n\n\t\tret = vfio_pci_set_irqs_ioctl(vdev, hdr.flags, hdr.index,\n\t\t\t\t\t      hdr.start, hdr.count, data);\n\n\t\tmutex_unlock(&vdev->igate);\n\t\tkfree(data);\n\n\t\treturn ret;\n\n\t} else if (cmd == VFIO_DEVICE_RESET) {\n\t\treturn vdev->reset_works ?\n\t\t\tpci_try_reset_function(vdev->pdev) : -EINVAL;\n\n\t} else if (cmd == VFIO_DEVICE_GET_PCI_HOT_RESET_INFO) {\n\t\tstruct vfio_pci_hot_reset_info hdr;\n\t\tstruct vfio_pci_fill_info fill = { 0 };\n\t\tstruct vfio_pci_dependent_device *devices = NULL;\n\t\tbool slot = false;\n\t\tint ret = 0;\n\n\t\tminsz = offsetofend(struct vfio_pci_hot_reset_info, count);\n\n\t\tif (copy_from_user(&hdr, (void __user *)arg, minsz))\n\t\t\treturn -EFAULT;\n\n\t\tif (hdr.argsz < minsz)\n\t\t\treturn -EINVAL;\n\n\t\thdr.flags = 0;\n\n\t\t/* Can we do a slot or bus reset or neither? */\n\t\tif (!pci_probe_reset_slot(vdev->pdev->slot))\n\t\t\tslot = true;\n\t\telse if (pci_probe_reset_bus(vdev->pdev->bus))\n\t\t\treturn -ENODEV;\n\n\t\t/* How many devices are affected? */\n\t\tret = vfio_pci_for_each_slot_or_bus(vdev->pdev,\n\t\t\t\t\t\t    vfio_pci_count_devs,\n\t\t\t\t\t\t    &fill.max, slot);\n\t\tif (ret)\n\t\t\treturn ret;\n\n\t\tWARN_ON(!fill.max); /* Should always be at least one */\n\n\t\t/*\n\t\t * If there's enough space, fill it now, otherwise return\n\t\t * -ENOSPC and the number of devices affected.\n\t\t */\n\t\tif (hdr.argsz < sizeof(hdr) + (fill.max * sizeof(*devices))) {\n\t\t\tret = -ENOSPC;\n\t\t\thdr.count = fill.max;\n\t\t\tgoto reset_info_exit;\n\t\t}\n\n\t\tdevices = kcalloc(fill.max, sizeof(*devices), GFP_KERNEL);\n\t\tif (!devices)\n\t\t\treturn -ENOMEM;\n\n\t\tfill.devices = devices;\n\n\t\tret = vfio_pci_for_each_slot_or_bus(vdev->pdev,\n\t\t\t\t\t\t    vfio_pci_fill_devs,\n\t\t\t\t\t\t    &fill, slot);\n\n\t\t/*\n\t\t * If a device was removed between counting and filling,\n\t\t * we may come up short of fill.max.  If a device was\n\t\t * added, we'll have a return of -EAGAIN above.\n\t\t */\n\t\tif (!ret)\n\t\t\thdr.count = fill.cur;\n\nreset_info_exit:\n\t\tif (copy_to_user((void __user *)arg, &hdr, minsz))\n\t\t\tret = -EFAULT;\n\n\t\tif (!ret) {\n\t\t\tif (copy_to_user((void __user *)(arg + minsz), devices,\n\t\t\t\t\t hdr.count * sizeof(*devices)))\n\t\t\t\tret = -EFAULT;\n\t\t}\n\n\t\tkfree(devices);\n\t\treturn ret;\n\n\t} else if (cmd == VFIO_DEVICE_PCI_HOT_RESET) {\n\t\tstruct vfio_pci_hot_reset hdr;\n\t\tint32_t *group_fds;\n\t\tstruct vfio_pci_group_entry *groups;\n\t\tstruct vfio_pci_group_info info;\n\t\tbool slot = false;\n\t\tint i, count = 0, ret = 0;\n\n\t\tminsz = offsetofend(struct vfio_pci_hot_reset, count);\n\n\t\tif (copy_from_user(&hdr, (void __user *)arg, minsz))\n\t\t\treturn -EFAULT;\n\n\t\tif (hdr.argsz < minsz || hdr.flags)\n\t\t\treturn -EINVAL;\n\n\t\t/* Can we do a slot or bus reset or neither? */\n\t\tif (!pci_probe_reset_slot(vdev->pdev->slot))\n\t\t\tslot = true;\n\t\telse if (pci_probe_reset_bus(vdev->pdev->bus))\n\t\t\treturn -ENODEV;\n\n\t\t/*\n\t\t * We can't let userspace give us an arbitrarily large\n\t\t * buffer to copy, so verify how many we think there\n\t\t * could be.  Note groups can have multiple devices so\n\t\t * one group per device is the max.\n\t\t */\n\t\tret = vfio_pci_for_each_slot_or_bus(vdev->pdev,\n\t\t\t\t\t\t    vfio_pci_count_devs,\n\t\t\t\t\t\t    &count, slot);\n\t\tif (ret)\n\t\t\treturn ret;\n\n\t\t/* Somewhere between 1 and count is OK */\n\t\tif (!hdr.count || hdr.count > count)\n\t\t\treturn -EINVAL;\n\n\t\tgroup_fds = kcalloc(hdr.count, sizeof(*group_fds), GFP_KERNEL);\n\t\tgroups = kcalloc(hdr.count, sizeof(*groups), GFP_KERNEL);\n\t\tif (!group_fds || !groups) {\n\t\t\tkfree(group_fds);\n\t\t\tkfree(groups);\n\t\t\treturn -ENOMEM;\n\t\t}\n\n\t\tif (copy_from_user(group_fds, (void __user *)(arg + minsz),\n\t\t\t\t   hdr.count * sizeof(*group_fds))) {\n\t\t\tkfree(group_fds);\n\t\t\tkfree(groups);\n\t\t\treturn -EFAULT;\n\t\t}\n\n\t\t/*\n\t\t * For each group_fd, get the group through the vfio external\n\t\t * user interface and store the group and iommu ID.  This\n\t\t * ensures the group is held across the reset.\n\t\t */\n\t\tfor (i = 0; i < hdr.count; i++) {\n\t\t\tstruct vfio_group *group;\n\t\t\tstruct fd f = fdget(group_fds[i]);\n\t\t\tif (!f.file) {\n\t\t\t\tret = -EBADF;\n\t\t\t\tbreak;\n\t\t\t}\n\n\t\t\tgroup = vfio_group_get_external_user(f.file);\n\t\t\tfdput(f);\n\t\t\tif (IS_ERR(group)) {\n\t\t\t\tret = PTR_ERR(group);\n\t\t\t\tbreak;\n\t\t\t}\n\n\t\t\tgroups[i].group = group;\n\t\t\tgroups[i].id = vfio_external_user_iommu_id(group);\n\t\t}\n\n\t\tkfree(group_fds);\n\n\t\t/* release reference to groups on error */\n\t\tif (ret)\n\t\t\tgoto hot_reset_release;\n\n\t\tinfo.count = hdr.count;\n\t\tinfo.groups = groups;\n\n\t\t/*\n\t\t * Test whether all the affected devices are contained\n\t\t * by the set of groups provided by the user.\n\t\t */\n\t\tret = vfio_pci_for_each_slot_or_bus(vdev->pdev,\n\t\t\t\t\t\t    vfio_pci_validate_devs,\n\t\t\t\t\t\t    &info, slot);\n\t\tif (!ret)\n\t\t\t/* User has access, do the reset */\n\t\t\tret = slot ? pci_try_reset_slot(vdev->pdev->slot) :\n\t\t\t\t     pci_try_reset_bus(vdev->pdev->bus);\n\nhot_reset_release:\n\t\tfor (i--; i >= 0; i--)\n\t\t\tvfio_group_put_external_user(groups[i].group);\n\n\t\tkfree(groups);\n\t\treturn ret;\n\t}\n\n\treturn -ENOTTY;\n}\n",
+        "vul_function": "static long vfio_pci_ioctl(void *device_data,\n\t\t\t   unsigned int cmd, unsigned long arg)\n{\n\tstruct vfio_pci_device *vdev = device_data;\n\tunsigned long minsz;\n\n\tif (cmd == VFIO_DEVICE_GET_INFO) {\n\t\tstruct vfio_device_info info;\n\n\t\tminsz = offsetofend(struct vfio_device_info, num_irqs);\n\n\t\tif (copy_from_user(&info, (void __user *)arg, minsz))\n\t\t\treturn -EFAULT;\n\n\t\tif (info.argsz < minsz)\n\t\t\treturn -EINVAL;\n\n\t\tinfo.flags = VFIO_DEVICE_FLAGS_PCI;\n\n\t\tif (vdev->reset_works)\n\t\t\tinfo.flags |= VFIO_DEVICE_FLAGS_RESET;\n\n\t\tinfo.num_regions = VFIO_PCI_NUM_REGIONS + vdev->num_regions;\n\t\tinfo.num_irqs = VFIO_PCI_NUM_IRQS;\n\n\t\treturn copy_to_user((void __user *)arg, &info, minsz) ?\n\t\t\t-EFAULT : 0;\n\n\t} else if (cmd == VFIO_DEVICE_GET_REGION_INFO) {\n\t\tstruct pci_dev *pdev = vdev->pdev;\n\t\tstruct vfio_region_info info;\n\t\tstruct vfio_info_cap caps = { .buf = NULL, .size = 0 };\n\t\tint i, ret;\n\n\t\tminsz = offsetofend(struct vfio_region_info, offset);\n\n\t\tif (copy_from_user(&info, (void __user *)arg, minsz))\n\t\t\treturn -EFAULT;\n\n\t\tif (info.argsz < minsz)\n\t\t\treturn -EINVAL;\n\n\t\tswitch (info.index) {\n\t\tcase VFIO_PCI_CONFIG_REGION_INDEX:\n\t\t\tinfo.offset = VFIO_PCI_INDEX_TO_OFFSET(info.index);\n\t\t\tinfo.size = pdev->cfg_size;\n\t\t\tinfo.flags = VFIO_REGION_INFO_FLAG_READ |\n\t\t\t\t     VFIO_REGION_INFO_FLAG_WRITE;\n\t\t\tbreak;\n\t\tcase VFIO_PCI_BAR0_REGION_INDEX ... VFIO_PCI_BAR5_REGION_INDEX:\n\t\t\tinfo.offset = VFIO_PCI_INDEX_TO_OFFSET(info.index);\n\t\t\tinfo.size = pci_resource_len(pdev, info.index);\n\t\t\tif (!info.size) {\n\t\t\t\tinfo.flags = 0;\n\t\t\t\tbreak;\n\t\t\t}\n\n\t\t\tinfo.flags = VFIO_REGION_INFO_FLAG_READ |\n\t\t\t\t     VFIO_REGION_INFO_FLAG_WRITE;\n\t\t\tif (vdev->bar_mmap_supported[info.index]) {\n\t\t\t\tinfo.flags |= VFIO_REGION_INFO_FLAG_MMAP;\n\t\t\t\tif (info.index == vdev->msix_bar) {\n\t\t\t\t\tret = msix_sparse_mmap_cap(vdev, &caps);\n\t\t\t\t\tif (ret)\n\t\t\t\t\t\treturn ret;\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tbreak;\n\t\tcase VFIO_PCI_ROM_REGION_INDEX:\n\t\t{\n\t\t\tvoid __iomem *io;\n\t\t\tsize_t size;\n\n\t\t\tinfo.offset = VFIO_PCI_INDEX_TO_OFFSET(info.index);\n\t\t\tinfo.flags = 0;\n\n\t\t\t/* Report the BAR size, not the ROM size */\n\t\t\tinfo.size = pci_resource_len(pdev, info.index);\n\t\t\tif (!info.size) {\n\t\t\t\t/* Shadow ROMs appear as PCI option ROMs */\n\t\t\t\tif (pdev->resource[PCI_ROM_RESOURCE].flags &\n\t\t\t\t\t\t\tIORESOURCE_ROM_SHADOW)\n\t\t\t\t\tinfo.size = 0x20000;\n\t\t\t\telse\n\t\t\t\t\tbreak;\n\t\t\t}\n\n\t\t\t/* Is it really there? */\n\t\t\tio = pci_map_rom(pdev, &size);\n\t\t\tif (!io || !size) {\n\t\t\t\tinfo.size = 0;\n\t\t\t\tbreak;\n\t\t\t}\n\t\t\tpci_unmap_rom(pdev, io);\n\n\t\t\tinfo.flags = VFIO_REGION_INFO_FLAG_READ;\n\t\t\tbreak;\n\t\t}\n\t\tcase VFIO_PCI_VGA_REGION_INDEX:\n\t\t\tif (!vdev->has_vga)\n\t\t\t\treturn -EINVAL;\n\n\t\t\tinfo.offset = VFIO_PCI_INDEX_TO_OFFSET(info.index);\n\t\t\tinfo.size = 0xc0000;\n\t\t\tinfo.flags = VFIO_REGION_INFO_FLAG_READ |\n\t\t\t\t     VFIO_REGION_INFO_FLAG_WRITE;\n\n\t\t\tbreak;\n\t\tdefault:\n\t\t\tif (info.index >=\n\t\t\t    VFIO_PCI_NUM_REGIONS + vdev->num_regions)\n\t\t\t\treturn -EINVAL;\n\n\t\t\ti = info.index - VFIO_PCI_NUM_REGIONS;\n\n\t\t\tinfo.offset = VFIO_PCI_INDEX_TO_OFFSET(info.index);\n\t\t\tinfo.size = vdev->region[i].size;\n\t\t\tinfo.flags = vdev->region[i].flags;\n\n\t\t\tret = region_type_cap(vdev, &caps,\n\t\t\t\t\t      vdev->region[i].type,\n\t\t\t\t\t      vdev->region[i].subtype);\n\t\t\tif (ret)\n\t\t\t\treturn ret;\n\t\t}\n\n\t\tif (caps.size) {\n\t\t\tinfo.flags |= VFIO_REGION_INFO_FLAG_CAPS;\n\t\t\tif (info.argsz < sizeof(info) + caps.size) {\n\t\t\t\tinfo.argsz = sizeof(info) + caps.size;\n\t\t\t\tinfo.cap_offset = 0;\n\t\t\t} else {\n\t\t\t\tvfio_info_cap_shift(&caps, sizeof(info));\n\t\t\t\tif (copy_to_user((void __user *)arg +\n\t\t\t\t\t\t  sizeof(info), caps.buf,\n\t\t\t\t\t\t  caps.size)) {\n\t\t\t\t\tkfree(caps.buf);\n\t\t\t\t\treturn -EFAULT;\n\t\t\t\t}\n\t\t\t\tinfo.cap_offset = sizeof(info);\n\t\t\t}\n\n\t\t\tkfree(caps.buf);\n\t\t}\n\n\t\treturn copy_to_user((void __user *)arg, &info, minsz) ?\n\t\t\t-EFAULT : 0;\n\n\t} else if (cmd == VFIO_DEVICE_GET_IRQ_INFO) {\n\t\tstruct vfio_irq_info info;\n\n\t\tminsz = offsetofend(struct vfio_irq_info, count);\n\n\t\tif (copy_from_user(&info, (void __user *)arg, minsz))\n\t\t\treturn -EFAULT;\n\n\t\tif (info.argsz < minsz || info.index >= VFIO_PCI_NUM_IRQS)\n\t\t\treturn -EINVAL;\n\n\t\tswitch (info.index) {\n\t\tcase VFIO_PCI_INTX_IRQ_INDEX ... VFIO_PCI_MSIX_IRQ_INDEX:\n\t\tcase VFIO_PCI_REQ_IRQ_INDEX:\n\t\t\tbreak;\n\t\tcase VFIO_PCI_ERR_IRQ_INDEX:\n\t\t\tif (pci_is_pcie(vdev->pdev))\n\t\t\t\tbreak;\n\t\t/* pass thru to return error */\n\t\tdefault:\n\t\t\treturn -EINVAL;\n\t\t}\n\n\t\tinfo.flags = VFIO_IRQ_INFO_EVENTFD;\n\n\t\tinfo.count = vfio_pci_get_irq_count(vdev, info.index);\n\n\t\tif (info.index == VFIO_PCI_INTX_IRQ_INDEX)\n\t\t\tinfo.flags |= (VFIO_IRQ_INFO_MASKABLE |\n\t\t\t\t       VFIO_IRQ_INFO_AUTOMASKED);\n\t\telse\n\t\t\tinfo.flags |= VFIO_IRQ_INFO_NORESIZE;\n\n\t\treturn copy_to_user((void __user *)arg, &info, minsz) ?\n\t\t\t-EFAULT : 0;\n \n \t} else if (cmd == VFIO_DEVICE_SET_IRQS) {\n \t\tstruct vfio_irq_set hdr;\n \t\tu8 *data = NULL;\n\t\tint ret = 0;\n \n \t\tminsz = offsetofend(struct vfio_irq_set, count);\n \n \t\tif (copy_from_user(&hdr, (void __user *)arg, minsz))\n \t\t\treturn -EFAULT;\n \n \t\tif (hdr.argsz < minsz || hdr.index >= VFIO_PCI_NUM_IRQS ||\n \t\t    hdr.flags & ~(VFIO_IRQ_SET_DATA_TYPE_MASK |\n \t\t\t\t  VFIO_IRQ_SET_ACTION_TYPE_MASK))\n \t\t\treturn -EINVAL;\n \n\t\tif (!(hdr.flags & VFIO_IRQ_SET_DATA_NONE)) {\n\t\t\tsize_t size;\n\t\t\tint max = vfio_pci_get_irq_count(vdev, hdr.index);\n \n\t\t\tif (hdr.flags & VFIO_IRQ_SET_DATA_BOOL)\n\t\t\t\tsize = sizeof(uint8_t);\n\t\t\telse if (hdr.flags & VFIO_IRQ_SET_DATA_EVENTFD)\n\t\t\t\tsize = sizeof(int32_t);\n\t\t\telse\n\t\t\t\treturn -EINVAL;\n \n\t\t\tif (hdr.argsz - minsz < hdr.count * size ||\n\t\t\t    hdr.start >= max || hdr.start + hdr.count > max)\n \t\t\t\treturn -EINVAL;\n \n \t\t\tdata = memdup_user((void __user *)(arg + minsz),\n\t\t\t\t\t   hdr.count * size);\n\t\t\tif (IS_ERR(data))\n\t\t\t\treturn PTR_ERR(data);\n\t\t}\n\n\t\tmutex_lock(&vdev->igate);\n\n\t\tret = vfio_pci_set_irqs_ioctl(vdev, hdr.flags, hdr.index,\n\t\t\t\t\t      hdr.start, hdr.count, data);\n\n\t\tmutex_unlock(&vdev->igate);\n\t\tkfree(data);\n\n\t\treturn ret;\n\n\t} else if (cmd == VFIO_DEVICE_RESET) {\n\t\treturn vdev->reset_works ?\n\t\t\tpci_try_reset_function(vdev->pdev) : -EINVAL;\n\n\t} else if (cmd == VFIO_DEVICE_GET_PCI_HOT_RESET_INFO) {\n\t\tstruct vfio_pci_hot_reset_info hdr;\n\t\tstruct vfio_pci_fill_info fill = { 0 };\n\t\tstruct vfio_pci_dependent_device *devices = NULL;\n\t\tbool slot = false;\n\t\tint ret = 0;\n\n\t\tminsz = offsetofend(struct vfio_pci_hot_reset_info, count);\n\n\t\tif (copy_from_user(&hdr, (void __user *)arg, minsz))\n\t\t\treturn -EFAULT;\n\n\t\tif (hdr.argsz < minsz)\n\t\t\treturn -EINVAL;\n\n\t\thdr.flags = 0;\n\n\t\t/* Can we do a slot or bus reset or neither? */\n\t\tif (!pci_probe_reset_slot(vdev->pdev->slot))\n\t\t\tslot = true;\n\t\telse if (pci_probe_reset_bus(vdev->pdev->bus))\n\t\t\treturn -ENODEV;\n\n\t\t/* How many devices are affected? */\n\t\tret = vfio_pci_for_each_slot_or_bus(vdev->pdev,\n\t\t\t\t\t\t    vfio_pci_count_devs,\n\t\t\t\t\t\t    &fill.max, slot);\n\t\tif (ret)\n\t\t\treturn ret;\n\n\t\tWARN_ON(!fill.max); /* Should always be at least one */\n\n\t\t/*\n\t\t * If there's enough space, fill it now, otherwise return\n\t\t * -ENOSPC and the number of devices affected.\n\t\t */\n\t\tif (hdr.argsz < sizeof(hdr) + (fill.max * sizeof(*devices))) {\n\t\t\tret = -ENOSPC;\n\t\t\thdr.count = fill.max;\n\t\t\tgoto reset_info_exit;\n\t\t}\n\n\t\tdevices = kcalloc(fill.max, sizeof(*devices), GFP_KERNEL);\n\t\tif (!devices)\n\t\t\treturn -ENOMEM;\n\n\t\tfill.devices = devices;\n\n\t\tret = vfio_pci_for_each_slot_or_bus(vdev->pdev,\n\t\t\t\t\t\t    vfio_pci_fill_devs,\n\t\t\t\t\t\t    &fill, slot);\n\n\t\t/*\n\t\t * If a device was removed between counting and filling,\n\t\t * we may come up short of fill.max.  If a device was\n\t\t * added, we'll have a return of -EAGAIN above.\n\t\t */\n\t\tif (!ret)\n\t\t\thdr.count = fill.cur;\n\nreset_info_exit:\n\t\tif (copy_to_user((void __user *)arg, &hdr, minsz))\n\t\t\tret = -EFAULT;\n\n\t\tif (!ret) {\n\t\t\tif (copy_to_user((void __user *)(arg + minsz), devices,\n\t\t\t\t\t hdr.count * sizeof(*devices)))\n\t\t\t\tret = -EFAULT;\n\t\t}\n\n\t\tkfree(devices);\n\t\treturn ret;\n\n\t} else if (cmd == VFIO_DEVICE_PCI_HOT_RESET) {\n\t\tstruct vfio_pci_hot_reset hdr;\n\t\tint32_t *group_fds;\n\t\tstruct vfio_pci_group_entry *groups;\n\t\tstruct vfio_pci_group_info info;\n\t\tbool slot = false;\n\t\tint i, count = 0, ret = 0;\n\n\t\tminsz = offsetofend(struct vfio_pci_hot_reset, count);\n\n\t\tif (copy_from_user(&hdr, (void __user *)arg, minsz))\n\t\t\treturn -EFAULT;\n\n\t\tif (hdr.argsz < minsz || hdr.flags)\n\t\t\treturn -EINVAL;\n\n\t\t/* Can we do a slot or bus reset or neither? */\n\t\tif (!pci_probe_reset_slot(vdev->pdev->slot))\n\t\t\tslot = true;\n\t\telse if (pci_probe_reset_bus(vdev->pdev->bus))\n\t\t\treturn -ENODEV;\n\n\t\t/*\n\t\t * We can't let userspace give us an arbitrarily large\n\t\t * buffer to copy, so verify how many we think there\n\t\t * could be.  Note groups can have multiple devices so\n\t\t * one group per device is the max.\n\t\t */\n\t\tret = vfio_pci_for_each_slot_or_bus(vdev->pdev,\n\t\t\t\t\t\t    vfio_pci_count_devs,\n\t\t\t\t\t\t    &count, slot);\n\t\tif (ret)\n\t\t\treturn ret;\n\n\t\t/* Somewhere between 1 and count is OK */\n\t\tif (!hdr.count || hdr.count > count)\n\t\t\treturn -EINVAL;\n\n\t\tgroup_fds = kcalloc(hdr.count, sizeof(*group_fds), GFP_KERNEL);\n\t\tgroups = kcalloc(hdr.count, sizeof(*groups), GFP_KERNEL);\n\t\tif (!group_fds || !groups) {\n\t\t\tkfree(group_fds);\n\t\t\tkfree(groups);\n\t\t\treturn -ENOMEM;\n\t\t}\n\n\t\tif (copy_from_user(group_fds, (void __user *)(arg + minsz),\n\t\t\t\t   hdr.count * sizeof(*group_fds))) {\n\t\t\tkfree(group_fds);\n\t\t\tkfree(groups);\n\t\t\treturn -EFAULT;\n\t\t}\n\n\t\t/*\n\t\t * For each group_fd, get the group through the vfio external\n\t\t * user interface and store the group and iommu ID.  This\n\t\t * ensures the group is held across the reset.\n\t\t */\n\t\tfor (i = 0; i < hdr.count; i++) {\n\t\t\tstruct vfio_group *group;\n\t\t\tstruct fd f = fdget(group_fds[i]);\n\t\t\tif (!f.file) {\n\t\t\t\tret = -EBADF;\n\t\t\t\tbreak;\n\t\t\t}\n\n\t\t\tgroup = vfio_group_get_external_user(f.file);\n\t\t\tfdput(f);\n\t\t\tif (IS_ERR(group)) {\n\t\t\t\tret = PTR_ERR(group);\n\t\t\t\tbreak;\n\t\t\t}\n\n\t\t\tgroups[i].group = group;\n\t\t\tgroups[i].id = vfio_external_user_iommu_id(group);\n\t\t}\n\n\t\tkfree(group_fds);\n\n\t\t/* release reference to groups on error */\n\t\tif (ret)\n\t\t\tgoto hot_reset_release;\n\n\t\tinfo.count = hdr.count;\n\t\tinfo.groups = groups;\n\n\t\t/*\n\t\t * Test whether all the affected devices are contained\n\t\t * by the set of groups provided by the user.\n\t\t */\n\t\tret = vfio_pci_for_each_slot_or_bus(vdev->pdev,\n\t\t\t\t\t\t    vfio_pci_validate_devs,\n\t\t\t\t\t\t    &info, slot);\n\t\tif (!ret)\n\t\t\t/* User has access, do the reset */\n\t\t\tret = slot ? pci_try_reset_slot(vdev->pdev->slot) :\n\t\t\t\t     pci_try_reset_bus(vdev->pdev->bus);\n\nhot_reset_release:\n\t\tfor (i--; i >= 0; i--)\n\t\t\tvfio_group_put_external_user(groups[i].group);\n\n\t\tkfree(groups);\n\t\treturn ret;\n\t}\n\n\treturn -ENOTTY;\n}\n",
+        "llama3.1 Summary": null,
+        "llama3.1 CWE": null,
+        "llama3.1 CVE": null,
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.3458",
+            "BERTScore Recall": "0.2310",
+            "BERTScore F1": "0.2769"
+        },
+        "llama3.1 Cosine_Similarity": 0.10562491416931152,
+        "Mistral Summary": null,
+        "Mistral CWE": null,
+        "Mistral CVE": null,
+        "Mistral Cosine_Similarity": 0.10562491416931152,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.3458",
+            "BERTScore Recall": "0.2310",
+            "BERTScore F1": "0.2769"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/php/php-src/commit/7245bff300d3fa8bacbef7897ff080a6f1c23eba?w=1",
+        "CVE ID": "CVE-2016-5770",
+        "CVE Details": "Integer overflow in the SplFileObject::fread function in spl_directory.c in the SPL extension in PHP before 5.5.37 and 5.6.x before 5.6.23 allows remote attackers to cause a denial of service or possibly have unspecified other impact via a large integer argument, a related issue to CVE-2016-5096.",
+        "CWE ID": "CWE-190",
+        "commit_message": "Fix bug #72262 - do not overflow int",
+        "fixed_function": " SPL_METHOD(SplFileObject, rewind)\n {\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n\n\tspl_filesystem_file_rewind(getThis(), intern TSRMLS_CC);\n} /* }}} */\n\n/* {{{ proto void SplFileObject::eof()\n",
+        "vul_function": " SPL_METHOD(SplFileObject, rewind)\n {\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n\n\tspl_filesystem_file_rewind(getThis(), intern TSRMLS_CC);\n} /* }}} */\n\n/* {{{ proto void SplFileObject::eof()\n",
+        "llama3.1 Summary": "The patch changes the type of a variable to prevent integer overflow, which was causing incorrect results. This patch was applied to fix bug #72262, where an integer overflow occurred when working with large file sizes. Fixed version of function: SPL_METHOD(SplFileObject, rewind) { spl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC); if (zend_parse_parameters_none() == FAILURE) { return; } zend_long pos = 0; /* <--- NEW VARIABLE ADDED */ spl_filesystem_file_rewind(getThis(), intern, &pos TSRMLS_CC); } /* }}} */",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2008-5812",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.4762",
+            "BERTScore Recall": "0.5671",
+            "BERTScore F1": "0.5177"
+        },
+        "llama3.1 Cosine_Similarity": 0.6667830348014832,
+        "Mistral Summary": "The patch changes the vulnerable function to prevent integer overflow. It does this by ensuring that rewind operations on a file do not exceed the maximum value that an int can hold, preventing potential data corruption or application crashes.",
+        "Mistral CWE": "CWE-190 (Integer Overflow or Wraparound)",
+        "Mistral CVE": "N/A (The specific CVE ID is assigned during the official disclosure of a vulnerability, and it's not available until the issue is reported and fixed.)",
+        "Mistral Cosine_Similarity": 0.5293760895729065,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.6207",
+            "BERTScore Recall": "0.5172",
+            "BERTScore F1": "0.5643"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/php/php-src/commit/7245bff300d3fa8bacbef7897ff080a6f1c23eba?w=1",
+        "CVE ID": "CVE-2016-5770",
+        "CVE Details": "Integer overflow in the SplFileObject::fread function in spl_directory.c in the SPL extension in PHP before 5.5.37 and 5.6.x before 5.6.23 allows remote attackers to cause a denial of service or possibly have unspecified other impact via a large integer argument, a related issue to CVE-2016-5096.",
+        "CWE ID": "CWE-190",
+        "commit_message": "Fix bug #72262 - do not overflow int",
+        "fixed_function": " SPL_METHOD(SplFileObject, next)\n {\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n\n\tspl_filesystem_file_free_line(intern TSRMLS_CC);\n\tif (SPL_HAS_FLAG(intern->flags, SPL_FILE_OBJECT_READ_AHEAD)) {\n\t\tspl_filesystem_file_read_line(getThis(), intern, 1 TSRMLS_CC);\n\t}\n\tintern->u.file.current_line_num++;\n} /* }}} */\n\n/* {{{ proto void SplFileObject::setFlags(int flags)\n",
+        "vul_function": " SPL_METHOD(SplFileObject, next)\n {\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n\n\tspl_filesystem_file_free_line(intern TSRMLS_CC);\n\tif (SPL_HAS_FLAG(intern->flags, SPL_FILE_OBJECT_READ_AHEAD)) {\n\t\tspl_filesystem_file_read_line(getThis(), intern, 1 TSRMLS_CC);\n\t}\n\tintern->u.file.current_line_num++;\n} /* }}} */\n\n/* {{{ proto void SplFileObject::setFlags(int flags)\n",
+        "llama3.1 Summary": "The patch changes the increment operation on `intern->u.file.current_line_num` to prevent an integer overflow, which could have caused incorrect line number tracking. This patch was applied to fix bug #72262, ensuring that the SplFileObject's current line number remains accurate even when encountering large files or repeated increments beyond the maximum integer value. Fixed version of function: SPL_METHOD(SplFileObject, next) { spl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC); if (zend_parse_parameters_none() == FAILURE) { return; } spl_filesystem_file_free_line(intern TSRMLS_CC); if (SPL_HAS_FLAG(intern->flags, SPL_FILE_OBJECT_READ_AHEAD)) { spl_filesystem_file_read_line(getThis(), intern, 1 TSRMLS_CC); } zend_long current_line_num = intern->u.file.current_line_num; if (++current_line_num > PHP_INT_MAX) { // Handle overflow } else { intern->u.file.current_line_num = current_line_num; } } /* }}} */",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2009-0754",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.4503",
+            "BERTScore Recall": "0.5582",
+            "BERTScore F1": "0.4985"
+        },
+        "llama3.1 Cosine_Similarity": 0.6230103373527527,
+        "Mistral Summary": "The patch changes the vulnerable integer increment operation to prevent overflow, thereby fixing the issue identified in bug #72262.",
+        "Mistral CWE": "CWE-190 (Integer Overflow or Wraparound)",
+        "Mistral CVE": "Not applicable, as this vulnerability is identified from a code change and no public disclosure has been made.",
+        "Mistral Cosine_Similarity": 0.49039387702941895,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.6748",
+            "BERTScore Recall": "0.5297",
+            "BERTScore F1": "0.5936"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/mdadams/jasper/commit/d42b2388f7f8e0332c846675133acea151fc557a",
+        "CVE ID": "CVE-2016-9557",
+        "CVE Details": "Integer overflow in jas_image.c in JasPer before 1.900.25 allows remote attackers to cause a denial of service (application crash) via a crafted file.",
+        "CWE ID": "CWE-190",
+        "commit_message": "The generation of the configuration file jas_config.h has been completely\nreworked in order to avoid pollution of the global namespace.\n\nSome problematic types like uchar, ulong, and friends have been replaced\nwith names with a jas_ prefix.\n\nAn option max_samples has been added to the BMP and JPEG decoders to\nrestrict the maximum size of image that they can decode.  This change\nwas made as a (possibly temporary) fix to address security concerns.\nA max_samples command-line option has also been added to imginfo.\n\nWhether an image component (for jas_image_t) is stored in memory or on\ndisk is now based on the component size (rather than the image size).\n\nSome debug log message were added.\n\nSome new integer overflow checks were added.\n\nSome new safe integer add/multiply functions were added.\n\nMore pre-C99 cruft was removed.  JasPer has numerous \"hacks\" to\nhandle pre-C99 compilers.  JasPer now assumes C99 support.  So, this\npre-C99 cruft is unnecessary and can be removed.\n\nThe regression jasper-doublefree-mem_close.jpg has been re-enabled.\nTheoretically, it should work more predictably now.",
+        "fixed_function": "void jas_matrix_bindsub(jas_matrix_t *mat0, jas_matrix_t *mat1, int r0,\nvoid jas_matrix_bindsub(jas_matrix_t *mat0, jas_matrix_t *mat1,\n  jas_matind_t r0, jas_matind_t c0, jas_matind_t r1, jas_matind_t c1)\n {\n\tjas_matind_t i;\n \n \tif (mat0->data_) {\n \t\tif (!(mat0->flags_ & JAS_MATRIX_REF)) {\n\t\t\tjas_free(mat0->data_);\n\t\t}\n\t\tmat0->data_ = 0;\n\t\tmat0->datasize_ = 0;\n\t}\n\tif (mat0->rows_) {\n\t\tjas_free(mat0->rows_);\n\t\tmat0->rows_ = 0;\n\t}\n\tmat0->flags_ |= JAS_MATRIX_REF;\n\tmat0->numrows_ = r1 - r0 + 1;\n\tmat0->numcols_ = c1 - c0 + 1;\n\tmat0->maxrows_ = mat0->numrows_;\n\tif (!(mat0->rows_ = jas_alloc2(mat0->maxrows_, sizeof(jas_seqent_t *)))) {\n\t\t/*\n\t\t\tThere is no way to indicate failure to the caller.\n\t\t\tSo, we have no choice but to abort.\n\t\t\tIdeally, this function should have a non-void return type.\n\t\t\tIn practice, a non-void return type probably would not help\n\t\t\tmuch anyways as the caller would just have to terminate anyways.\n\t\t*/\n\t\tabort();\n\t}\n\n\tfor (i = 0; i < mat0->numrows_; ++i) {\n\t\tmat0->rows_[i] = mat1->rows_[r0 + i] + c0;\n\t}\n\n\tmat0->xstart_ = mat1->xstart_ + c0;\n\tmat0->ystart_ = mat1->ystart_ + r0;\n\tmat0->xend_ = mat0->xstart_ + mat0->numcols_;\n\tmat0->yend_ = mat0->ystart_ + mat0->numrows_;\n}\n",
+        "vul_function": "void jas_matrix_bindsub(jas_matrix_t *mat0, jas_matrix_t *mat1, int r0,\n  int c0, int r1, int c1)\n {\n\tint i;\n \n \tif (mat0->data_) {\n \t\tif (!(mat0->flags_ & JAS_MATRIX_REF)) {\n\t\t\tjas_free(mat0->data_);\n\t\t}\n\t\tmat0->data_ = 0;\n\t\tmat0->datasize_ = 0;\n\t}\n\tif (mat0->rows_) {\n\t\tjas_free(mat0->rows_);\n\t\tmat0->rows_ = 0;\n\t}\n\tmat0->flags_ |= JAS_MATRIX_REF;\n\tmat0->numrows_ = r1 - r0 + 1;\n\tmat0->numcols_ = c1 - c0 + 1;\n\tmat0->maxrows_ = mat0->numrows_;\n\tif (!(mat0->rows_ = jas_alloc2(mat0->maxrows_, sizeof(jas_seqent_t *)))) {\n\t\t/*\n\t\t\tThere is no way to indicate failure to the caller.\n\t\t\tSo, we have no choice but to abort.\n\t\t\tIdeally, this function should have a non-void return type.\n\t\t\tIn practice, a non-void return type probably would not help\n\t\t\tmuch anyways as the caller would just have to terminate anyways.\n\t\t*/\n\t\tabort();\n\t}\n\n\tfor (i = 0; i < mat0->numrows_; ++i) {\n\t\tmat0->rows_[i] = mat1->rows_[r0 + i] + c0;\n\t}\n\n\tmat0->xstart_ = mat1->xstart_ + c0;\n\tmat0->ystart_ = mat1->ystart_ + r0;\n\tmat0->xend_ = mat0->xstart_ + mat0->numcols_;\n\tmat0->yend_ = mat0->ystart_ + mat0->numrows_;\n}\n",
+        "llama3.1 Summary": "The patch changes the types of variables r0 and c0 from int to jas_matind_t in the function jas_matrix_bindsub to prevent integer overflow, which was causing a buffer overflow vulnerability. This change helps ensure that memory allocation is done safely by preventing potential overflows.",
+        "llama3.1 CWE": "CWE-122",
+        "llama3.1 CVE": "CVE-2009-4121",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.5700",
+            "BERTScore Recall": "0.6264",
+            "BERTScore F1": "0.5969"
+        },
+        "llama3.1 Cosine_Similarity": 0.47774791717529297,
+        "Mistral Summary": "New integer overflow checks were added to prevent potential integer wraparounds, addressing a security concern. The patched version of the function now uses jas_matind_t instead of int for index variables, which helps avoid integer overflows.",
+        "Mistral CWE": "CWE-170 (Integer Overflow or Wraparound)",
+        "Mistral CVE": "Not provided (as the commit message does not indicate a specific vulnerability exploit or disclosure)",
+        "Mistral Cosine_Similarity": 0.46537232398986816,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.5745",
+            "BERTScore Recall": "0.5923",
+            "BERTScore F1": "0.5833"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/php/php-src/commit/7245bff300d3fa8bacbef7897ff080a6f1c23eba?w=1",
+        "CVE ID": "CVE-2016-5770",
+        "CVE Details": "Integer overflow in the SplFileObject::fread function in spl_directory.c in the SPL extension in PHP before 5.5.37 and 5.6.x before 5.6.23 allows remote attackers to cause a denial of service or possibly have unspecified other impact via a large integer argument, a related issue to CVE-2016-5096.",
+        "CWE ID": "CWE-190",
+        "commit_message": "Fix bug #72262 - do not overflow int",
+        "fixed_function": "SPL_METHOD(SplFileInfo, setFileClass)\n{\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n \tzend_class_entry *ce = spl_ce_SplFileObject;\n \tzend_error_handling error_handling;\n\n \tzend_replace_error_handling(EH_THROW, spl_ce_UnexpectedValueException, &error_handling TSRMLS_CC);\n \n \tif (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, \"|C\", &ce) == SUCCESS) {\n\t\tintern->file_class = ce;\n\t}\n\n\tzend_restore_error_handling(&error_handling TSRMLS_CC);\n}\n",
+        "vul_function": "SPL_METHOD(SplFileInfo, setFileClass)\n{\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n \tzend_class_entry *ce = spl_ce_SplFileObject;\n \tzend_error_handling error_handling;\n \tzend_replace_error_handling(EH_THROW, spl_ce_UnexpectedValueException, &error_handling TSRMLS_CC);\n \n \tif (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, \"|C\", &ce) == SUCCESS) {\n\t\tintern->file_class = ce;\n\t}\n\n\tzend_restore_error_handling(&error_handling TSRMLS_CC);\n}\n",
+        "llama3.1 Summary": "The patch changes the type of the `intern->file_class` variable to prevent an integer overflow, which was causing a bug. This fix ensures that the correct class is stored in the object's property, preventing potential errors or crashes due to incorrect file handling. \nFixed version of function: SPL_METHOD(SplFileInfo, setFileClass)\n{\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n \tzend_class_entry *ce = spl_ce_SplFileObject;\n \tzend_error_handling error_handling;\n\n \tzend_replace_error_handling(EH_THROW, spl_ce_UnexpectedValueException, &error_handling TSRMLS_CC);\n \n \tif (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, \"|C\", &ce) == SUCCESS) {\n\t\tintern->file_class = ce;\n\t}\n\n\tzend_restore_error_handling(&error_handling TSRMLS_CC);\n}",
+        "llama3.1 CWE": "CWE-682",
+        "llama3.1 CVE": "CVE-2013-7456",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.4328",
+            "BERTScore Recall": "0.5381",
+            "BERTScore F1": "0.4797"
+        },
+        "llama3.1 Cosine_Similarity": 0.581909716129303,
+        "Mistral Summary": "The patch changes the handling of a parameter passed to the function, ensuring it does not exceed the maximum value for an integer. This prevents potential overflow issues that could lead to unexpected behavior or security vulnerabilities.",
+        "Mistral CWE": "CWE-190 (Integer Overflow or Wraparound)",
+        "Mistral CVE": "Not applicable (The CVE ID is assigned to individual vulnerabilities, not classes of errors like this one.)",
+        "Mistral Cosine_Similarity": 0.4385896921157837,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.6421",
+            "BERTScore Recall": "0.5163",
+            "BERTScore F1": "0.5724"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/php/php-src/commit/7245bff300d3fa8bacbef7897ff080a6f1c23eba?w=1",
+        "CVE ID": "CVE-2016-5770",
+        "CVE Details": "Integer overflow in the SplFileObject::fread function in spl_directory.c in the SPL extension in PHP before 5.5.37 and 5.6.x before 5.6.23 allows remote attackers to cause a denial of service or possibly have unspecified other impact via a large integer argument, a related issue to CVE-2016-5096.",
+        "CWE ID": "CWE-190",
+        "commit_message": "Fix bug #72262 - do not overflow int",
+        "fixed_function": "SPL_METHOD(SplFileObject, hasChildren)\n{\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n\n \tRETURN_FALSE;\n } /* }}} */\n \n/* {{{ proto bool SplFileObject::getChildren()\n",
+        "vul_function": "SPL_METHOD(SplFileObject, hasChildren)\n{\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n \tRETURN_FALSE;\n } /* }}} */\n \n/* {{{ proto bool SplFileObject::getChildren()\n",
+        "llama3.1 Summary": "The patch changes the return value of the hasChildren method to always return FALSE, preventing potential overflows. This was applied to fix a bug that could cause an integer overflow when returning the number of children.",
+        "llama3.1 CWE": "CWE-194",
+        "llama3.1 CVE": "CVE-2011-2390",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.6045",
+            "BERTScore Recall": "0.5051",
+            "BERTScore F1": "0.5504"
+        },
+        "llama3.1 Cosine_Similarity": 0.3588829040527344,
+        "Mistral Summary": "The patch changes the function to prevent an integer overflow by removing a call that could potentially overflow an integer variable. The original implementation allowed for a value greater than the maximum possible value of an integer, leading to unexpected behavior.",
+        "Mistral CWE": "CWE-190 (Integer Overflow or Wraparound)",
+        "Mistral CVE": "Not applicable as CVE IDs are not automatically assigned to non-public vulnerabilities",
+        "Mistral Cosine_Similarity": 0.48357510566711426,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.5881",
+            "BERTScore Recall": "0.4957",
+            "BERTScore F1": "0.5379"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://git.qemu.org/?p=qemu.git;a=commit;h=e3737b820b45e54b059656dc3f914f895ac7a88b",
+        "CVE ID": "CVE-2014-0143",
+        "CVE Details": "Multiple integer overflows in the block drivers in QEMU, possibly before 2.0.0, allow local users to cause a denial of service (crash) via a crafted catalog size in (1) the parallels_open function in block/parallels.c or (2) bochs_open function in bochs.c, a large L1 table in the (3) qcow2_snapshot_load_tmp in qcow2-snapshot.c or (4) qcow2_grow_l1_table function in qcow2-cluster.c, (5) a large request in the bdrv_check_byte_request function in block.c and other block drivers, (6) crafted cluster indexes in the get_refcount function in qcow2-refcount.c, or (7) a large number of blocks in the cloop_open function in cloop.c, which trigger buffer overflows, memory corruption, large memory allocations and out-of-bounds read and writes.",
+        "CWE ID": "CWE-190",
+        "commit_message": "None",
+        "fixed_function": "static int bochs_open(BlockDriverState *bs, QDict *options, int flags,\n                      Error **errp)\n{\n    BDRVBochsState *s = bs->opaque;\n    uint32_t i;\n    struct bochs_header bochs;\n    int ret;\n\n    bs->read_only = 1; // no write support yet\n\n    ret = bdrv_pread(bs->file, 0, &bochs, sizeof(bochs));\n    if (ret < 0) {\n        return ret;\n    }\n\n    if (strcmp(bochs.magic, HEADER_MAGIC) ||\n        strcmp(bochs.type, REDOLOG_TYPE) ||\n        strcmp(bochs.subtype, GROWING_TYPE) ||\n\t((le32_to_cpu(bochs.version) != HEADER_VERSION) &&\n\t(le32_to_cpu(bochs.version) != HEADER_V1))) {\n        error_setg(errp, \"Image not in Bochs format\");\n        return -EINVAL;\n    }\n\n    if (le32_to_cpu(bochs.version) == HEADER_V1) {\n        bs->total_sectors = le64_to_cpu(bochs.extra.redolog_v1.disk) / 512;\n    } else {\n         bs->total_sectors = le64_to_cpu(bochs.extra.redolog.disk) / 512;\n     }\n \n    /* Limit to 1M entries to avoid unbounded allocation. This is what is\n     * needed for the largest image that bximage can create (~8 TB). */\n     s->catalog_size = le32_to_cpu(bochs.catalog);\n    if (s->catalog_size > 0x100000) {\n        error_setg(errp, \"Catalog size is too large\");\n        return -EFBIG;\n    }\n\n     s->catalog_bitmap = g_malloc(s->catalog_size * 4);\n \n     ret = bdrv_pread(bs->file, le32_to_cpu(bochs.header), s->catalog_bitmap,\n\n    s->data_offset = le32_to_cpu(bochs.header) + (s->catalog_size * 4);\n\n    s->bitmap_blocks = 1 + (le32_to_cpu(bochs.bitmap) - 1) / 512;\n    s->extent_blocks = 1 + (le32_to_cpu(bochs.extent) - 1) / 512;\n\n    s->extent_size = le32_to_cpu(bochs.extent);\n\n    qemu_co_mutex_init(&s->lock);\n    return 0;\n\nfail:\n \n     s->extent_size = le32_to_cpu(bochs.extent);\n \n    if (s->catalog_size < bs->total_sectors / s->extent_size) {\n        error_setg(errp, \"Catalog size is too small for this disk size\");\n        ret = -EINVAL;\n        goto fail;\n    }\n\n     qemu_co_mutex_init(&s->lock);\n     return 0;\n    extent_index = offset / s->extent_size;\n    extent_offset = (offset % s->extent_size) / 512;\n\n    if (s->catalog_bitmap[extent_index] == 0xffffffff) {\n\treturn -1; /* not allocated */\n    }\n\n    bitmap_offset = s->data_offset + (512 * s->catalog_bitmap[extent_index] *\n\t(s->extent_blocks + s->bitmap_blocks));\n\n    /* read in bitmap for current extent */\n    if (bdrv_pread(bs->file, bitmap_offset + (extent_offset / 8),\n                   &bitmap_entry, 1) != 1) {\n        return -1;\n    }\n\n    if (!((bitmap_entry >> (extent_offset % 8)) & 1)) {\n\treturn -1; /* not allocated */\n    }\n\n    return bitmap_offset + (512 * (s->bitmap_blocks + extent_offset));\n}\n",
+        "vul_function": "static int bochs_open(BlockDriverState *bs, QDict *options, int flags,\n                      Error **errp)\n{\n    BDRVBochsState *s = bs->opaque;\n    uint32_t i;\n    struct bochs_header bochs;\n    int ret;\n\n    bs->read_only = 1; // no write support yet\n\n    ret = bdrv_pread(bs->file, 0, &bochs, sizeof(bochs));\n    if (ret < 0) {\n        return ret;\n    }\n\n    if (strcmp(bochs.magic, HEADER_MAGIC) ||\n        strcmp(bochs.type, REDOLOG_TYPE) ||\n        strcmp(bochs.subtype, GROWING_TYPE) ||\n\t((le32_to_cpu(bochs.version) != HEADER_VERSION) &&\n\t(le32_to_cpu(bochs.version) != HEADER_V1))) {\n        error_setg(errp, \"Image not in Bochs format\");\n        return -EINVAL;\n    }\n\n    if (le32_to_cpu(bochs.version) == HEADER_V1) {\n        bs->total_sectors = le64_to_cpu(bochs.extra.redolog_v1.disk) / 512;\n    } else {\n         bs->total_sectors = le64_to_cpu(bochs.extra.redolog.disk) / 512;\n     }\n \n     s->catalog_size = le32_to_cpu(bochs.catalog);\n     s->catalog_bitmap = g_malloc(s->catalog_size * 4);\n \n     ret = bdrv_pread(bs->file, le32_to_cpu(bochs.header), s->catalog_bitmap,\n\n    s->data_offset = le32_to_cpu(bochs.header) + (s->catalog_size * 4);\n\n    s->bitmap_blocks = 1 + (le32_to_cpu(bochs.bitmap) - 1) / 512;\n    s->extent_blocks = 1 + (le32_to_cpu(bochs.extent) - 1) / 512;\n\n    s->extent_size = le32_to_cpu(bochs.extent);\n\n    qemu_co_mutex_init(&s->lock);\n    return 0;\n\nfail:\n \n     s->extent_size = le32_to_cpu(bochs.extent);\n \n     qemu_co_mutex_init(&s->lock);\n     return 0;\n    extent_index = offset / s->extent_size;\n    extent_offset = (offset % s->extent_size) / 512;\n\n    if (s->catalog_bitmap[extent_index] == 0xffffffff) {\n\treturn -1; /* not allocated */\n    }\n\n    bitmap_offset = s->data_offset + (512 * s->catalog_bitmap[extent_index] *\n\t(s->extent_blocks + s->bitmap_blocks));\n\n    /* read in bitmap for current extent */\n    if (bdrv_pread(bs->file, bitmap_offset + (extent_offset / 8),\n                   &bitmap_entry, 1) != 1) {\n        return -1;\n    }\n\n    if (!((bitmap_entry >> (extent_offset % 8)) & 1)) {\n\treturn -1; /* not allocated */\n    }\n\n    return bitmap_offset + (512 * (s->bitmap_blocks + extent_offset));\n}\n",
+        "llama3.1 Summary": "The patch adds a bounds check to prevent overflow when calculating the catalog size, ensuring that it does not exceed 1M entries. This change prevents potential buffer overflows and data corruption issues due to incorrect handling of large image sizes. \nFixed version of function: static int bochs_open(BlockDriverState *bs, QDict *options, int flags,\n                      Error **errp)\n{\n    BDRVBochsState *s = bs->opaque;\n    uint32_t i;\n    struct bochs_header bochs;\n    int ret;\n\n    bs->read_only = 1; // no write support yet\n\n    ret = bdrv_pread(bs->file, 0, &bochs, sizeof(bochs));\n    if (ret < 0) {\n        return ret;\n    }\n\n    if (strcmp(bochs.magic, HEADER_MAGIC) ||\n        strcmp(bochs.type, REDOLOG_TYPE) ||\n        strcmp(bochs.subtype, GROWING_TYPE) ||\n\t((le32_to_cpu(bochs.version) != HEADER_VERSION) &&\n\t(le32_to_cpu(bochs.version) != HEADER_V1))) {\n        error_setg(errp, \"Image not in Bochs format\");\n        return -EINVAL;\n    }\n\n    if (le32_to_cpu(bochs.version) == HEADER_V1) {\n        bs->total_sectors = le64_to_cpu(bochs.extra.redolog_v1.disk) / 512;\n    } else {\n         bs->total_sectors = le64_to_cpu(bochs.extra.redolog.disk) / 512;\n     }\n \n    /* Limit to 1M entries to avoid unbounded allocation. This is what is\n     * needed for the largest image that bximage can create (~8 TB). */\n     s->catalog_size = le32_to_cpu(bochs.catalog);\n    if (s->catalog_size > 0x100000) {\n        error_setg(errp, \"Catalog size is too large\");\n        return -EFBIG;\n    }\n\n     s->catalog_bitmap = g_malloc(s->catalog_size * 4);\n \n    ret = bdrv_pread(bs->file, le32_to_cpu(bochs.header), s->catalog_bitmap,\n\n    s->data_offset = le32_to_cpu(bochs.header) + (s->catalog_size * 4);\n\n    s->bitmap_blocks = 1 + (le32_to_cpu(bochs.bitmap) - 1) / 512;\n    s->extent_blocks = 1 + (le32_to_cpu(bochs.extent) - 1) / 512;\n\n    s->extent_size = le32_to_cpu(bochs.extent);\n\n    qemu_co_mutex_init(&s->lock);\n    return 0;\n\nfail:\n \n     s->extent_size = le32_to_cpu(bochs.extent);\n \n     qemu_co_mutex_init(&s->lock);\n     return 0;\n    extent_index = offset / s->extent_size;\n    extent_offset = (offset % s->extent_size) / 512;\n\n    if (s->catalog_bitmap[extent_index] == 0xffffffff) {\n\treturn -1; /* not allocated */\n    }\n\n    bitmap_offset = s->data_offset + (512 * s->catalog_bitmap[extent_index] *\n\t(s->extent_blocks + s->bitmap_blocks));\n\n    /* read in bitmap for current extent */\n    if (bdrv_pread(bs->file, bitmap_offset + (extent_offset / 8),\n                   &bitmap_entry, 1) != 1) {\n        return -1;\n    }\n\n    if (!((bitmap_entry >> (extent_offset % 8)) & 1)) {\n\treturn -1; /* not allocated */\n    }\n\n    return bitmap_offset + (512 * (s->bitmap_blocks + extent_offset));\n}",
+        "llama3.1 CWE": "CWE-22",
+        "llama3.1 CVE": "CVE-2023-1234",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.4517",
+            "BERTScore Recall": "0.4762",
+            "BERTScore F1": "0.4637"
+        },
+        "llama3.1 Cosine_Similarity": 0.4286752939224243,
+        "Mistral Summary": null,
+        "Mistral CWE": null,
+        "Mistral CVE": null,
+        "Mistral Cosine_Similarity": 0.12571680545806885,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.3311",
+            "BERTScore Recall": "0.1684",
+            "BERTScore F1": "0.2233"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/mdadams/jasper/commit/d42b2388f7f8e0332c846675133acea151fc557a",
+        "CVE ID": "CVE-2016-9557",
+        "CVE Details": "Integer overflow in jas_image.c in JasPer before 1.900.25 allows remote attackers to cause a denial of service (application crash) via a crafted file.",
+        "CWE ID": "CWE-190",
+        "commit_message": "The generation of the configuration file jas_config.h has been completely\nreworked in order to avoid pollution of the global namespace.\n\nSome problematic types like uchar, ulong, and friends have been replaced\nwith names with a jas_ prefix.\n\nAn option max_samples has been added to the BMP and JPEG decoders to\nrestrict the maximum size of image that they can decode.  This change\nwas made as a (possibly temporary) fix to address security concerns.\nA max_samples command-line option has also been added to imginfo.\n\nWhether an image component (for jas_image_t) is stored in memory or on\ndisk is now based on the component size (rather than the image size).\n\nSome debug log message were added.\n\nSome new integer overflow checks were added.\n\nSome new safe integer add/multiply functions were added.\n\nMore pre-C99 cruft was removed.  JasPer has numerous \"hacks\" to\nhandle pre-C99 compilers.  JasPer now assumes C99 support.  So, this\npre-C99 cruft is unnecessary and can be removed.\n\nThe regression jasper-doublefree-mem_close.jpg has been re-enabled.\nTheoretically, it should work more predictably now.",
+        "fixed_function": "static inline long decode_twos_comp(ulong c, int prec)\nstatic inline long decode_twos_comp(jas_ulong c, int prec)\n {\n \tlong result;\n \tassert(prec >= 2);\n\tjas_eprintf(\"warning: support for signed data is untested\\n\");\n\tresult = (c & ((1 << (prec - 1)) - 1)) - (c & (1 << (prec - 1)));\n \treturn result;\n }\n",
+        "vul_function": "static inline long decode_twos_comp(ulong c, int prec)\n {\n \tlong result;\n \tassert(prec >= 2);\n\tjas_eprintf(\"warning: support for signed data is untested\\n\");\n\tresult = (c & ((1 << (prec - 1)) - 1)) - (c & (1 << (prec - 1)));\n \treturn result;\n }\n",
+        "llama3.1 Summary": "The patch adds integer overflow checks to prevent potential buffer overflows and fixes a vulnerability that allowed an attacker to cause JasPer to crash or potentially execute arbitrary code by manipulating the max_samples command-line option. The added checks ensure that the input values are within valid ranges, preventing any potential integer overflows and ensuring the program's stability. Fixed version of function: static inline long decode_twos_comp(jas_ulong c, int prec) { long result; assert(prec >= 2); jas_eprintf(\"warning: support for signed data is untested\\n\"); result = (c & ((1 << (prec - 1)) - 1)) - (c & (1 << (prec - 1))); return result; }",
+        "llama3.1 CWE": "CWE-682",
+        "llama3.1 CVE": "CVE-2010-1633",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.4706",
+            "BERTScore Recall": "0.6534",
+            "BERTScore F1": "0.5472"
+        },
+        "llama3.1 Cosine_Similarity": 0.6064908504486084,
+        "Mistral Summary": "The patch changes include the addition of new integer overflow checks and safe integer add/multiply functions to prevent potential integer overflow issues in the code, which was applied as a temporary fix to address security concerns.",
+        "Mistral CWE": "CWE-190 (Integer Overflow)",
+        "Mistral CVE": "Not provided as the commit message does not specify a specific vulnerability that received a CVE ID.",
+        "Mistral Cosine_Similarity": 0.3594552278518677,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.5794",
+            "BERTScore Recall": "0.5620",
+            "BERTScore F1": "0.5705"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/php/php-src/commit/7245bff300d3fa8bacbef7897ff080a6f1c23eba?w=1",
+        "CVE ID": "CVE-2016-5770",
+        "CVE Details": "Integer overflow in the SplFileObject::fread function in spl_directory.c in the SPL extension in PHP before 5.5.37 and 5.6.x before 5.6.23 allows remote attackers to cause a denial of service or possibly have unspecified other impact via a large integer argument, a related issue to CVE-2016-5096.",
+        "CWE ID": "CWE-190",
+        "commit_message": "Fix bug #72262 - do not overflow int",
+        "fixed_function": " SPL_METHOD(SplFileObject, key)\n {\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n\n/*\tDo not read the next line to support correct counting with fgetc()\n\tif (!intern->current_line) {\n\t\tspl_filesystem_file_read_line(getThis(), intern, 1 TSRMLS_CC);\n\t} */\n\tRETURN_LONG(intern->u.file.current_line_num);\n} /* }}} */\n\n/* {{{ proto void SplFileObject::next()\n",
+        "vul_function": " SPL_METHOD(SplFileObject, key)\n {\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n \tif (zend_parse_parameters_none() == FAILURE) {\n \t\treturn;\n \t}\n\n/*\tDo not read the next line to support correct counting with fgetc()\n\tif (!intern->current_line) {\n\t\tspl_filesystem_file_read_line(getThis(), intern, 1 TSRMLS_CC);\n\t} */\n\tRETURN_LONG(intern->u.file.current_line_num);\n} /* }}} */\n\n/* {{{ proto void SplFileObject::next()\n",
+        "llama3.1 Summary": "The patch removes the check that prevents reading the next line, thus avoiding an integer overflow when accessing the current_line_num field. This was done to fix a bug where the SplFileObject class would return incorrect line numbers in certain scenarios, leading to unexpected behavior. Fixed version of function: SPL_METHOD(SplFileObject, key) { spl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC); if (zend_parse_parameters_none() == FAILURE) { return; } /* Do not read the next line to support correct counting with fgetc() */ RETURN_LONG(intern->u.file.current_line_num); } /* }}} */",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2010-1056",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.5075",
+            "BERTScore Recall": "0.5523",
+            "BERTScore F1": "0.5289"
+        },
+        "llama3.1 Cosine_Similarity": 0.5881765484809875,
+        "Mistral Summary": "The patch modifies the function to prevent integer overflow on `intern->u.file.current_line_num` by ensuring it remains within the bounds of an integer. This was applied to fix a potential issue where very large line numbers could cause unintended behavior or system instability.",
+        "Mistral CWE": "CWE-190 (Integer Overflow or Wraparound)",
+        "Mistral CVE": "Not provided in the information given. It should be determined by referencing a vulnerability database like NVD and finding the corresponding CVE for the specific PHP version and issue number.",
+        "Mistral Cosine_Similarity": 0.4542771577835083,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.6258",
+            "BERTScore Recall": "0.5562",
+            "BERTScore F1": "0.5890"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/viabtc/viabtc_exchange_server/commit/4a7c27bfe98f409623d4d857894d017ff0672cc9#diff-515c81af848352583bff286d6224875f",
+        "CVE ID": "CVE-2018-17570",
+        "CVE Details": "utils/ut_ws_svr.c in ViaBTC Exchange Server before 2018-08-21 has an integer overflow leading to memory corruption.",
+        "CWE ID": "CWE-190",
+        "commit_message": "Merge pull request #131 from benjaminchodroff/master\n\nfix memory corruption and other 32bit overflows",
+        "fixed_function": "void nw_buf_free(nw_buf_pool *pool, nw_buf *buf)\n {\n     if (pool->free < pool->free_total) {\n         pool->free_arr[pool->free++] = buf;\n    } else if (pool->free_total < NW_BUF_POOL_MAX_SIZE) {\n         uint32_t new_free_total = pool->free_total * 2;\n         void *new_arr = realloc(pool->free_arr, new_free_total * sizeof(nw_buf *));\n         if (new_arr) {\n            pool->free_total = new_free_total;\n            pool->free_arr = new_arr;\n            pool->free_arr[pool->free++] = buf;\n         } else {\n             free(buf);\n         }\n    } else {\n        free(buf);\n     }\n }\n",
+        "vul_function": "void nw_buf_free(nw_buf_pool *pool, nw_buf *buf)\n {\n     if (pool->free < pool->free_total) {\n         pool->free_arr[pool->free++] = buf;\n    } else {\n         uint32_t new_free_total = pool->free_total * 2;\n         void *new_arr = realloc(pool->free_arr, new_free_total * sizeof(nw_buf *));\n         if (new_arr) {\n            pool->free_total = new_free_total;\n            pool->free_arr = new_arr;\n            pool->free_arr[pool->free++] = buf;\n         } else {\n             free(buf);\n         }\n     }\n }\n",
+        "llama3.1 Summary": "The patch changes the allocation of new memory when the pool is full, ensuring that enough space is always allocated to hold the buffer. This change prevents potential overflows and memory corruption issues by handling reallocation attempts in a robust manner. Fixed version of function: void nw_buf_free(nw_buf_pool *pool, nw_buf *buf)\n {\n     if (pool->free < pool->free_total) {\n         pool->free_arr[pool->free++] = buf;\n    } else if (pool->free_total < NW_BUF_POOL_MAX_SIZE) {\n         uint32_t new_free_total = pool->free_total * 2;\n         void *new_arr = realloc(pool->free_arr, new_free_total * sizeof(nw_buf *));\n         if (new_arr) {\n            pool->free_total = new_free_total;\n            pool->free_arr = new_arr;\n            pool->free_arr[pool->free++] = buf;\n         } else {\n             free(buf);\n         }\n    } else {\n        free(buf);\n     }\n }",
+        "llama3.1 CWE": "CWE-119",
+        "llama3.1 CVE": "CVE-2022-0001",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.3246",
+            "BERTScore Recall": "0.5619",
+            "BERTScore F1": "0.4115"
+        },
+        "llama3.1 Cosine_Similarity": 0.3485407829284668,
+        "Mistral Summary": "The patch changes the condition for allocating more memory space in the nw_buf_free function. Previously, the function only checked if pool->free < pool->free_total, but now it also checks if pool->free_total < NW_BUF_POOL_MAX_SIZE to prevent overflow when reallocating memory. This change addresses a potential buffer access after free vulnerability and 32bit overflows by ensuring that the new allocated memory is not null before using it.",
+        "Mistral CWE": "CWE-197 (Buffer Access After Free)",
+        "Mistral CVE": "CVE-XXXX-XXXX (This would need to be assigned by a CVE Numbering Authority, as it is not provided in the information given.)",
+        "Mistral Cosine_Similarity": 0.3800323009490967,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.4792",
+            "BERTScore Recall": "0.5972",
+            "BERTScore F1": "0.5317"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/php/php-src/commit/7245bff300d3fa8bacbef7897ff080a6f1c23eba?w=1",
+        "CVE ID": "CVE-2016-5770",
+        "CVE Details": "Integer overflow in the SplFileObject::fread function in spl_directory.c in the SPL extension in PHP before 5.5.37 and 5.6.x before 5.6.23 allows remote attackers to cause a denial of service or possibly have unspecified other impact via a large integer argument, a related issue to CVE-2016-5096.",
+        "CWE ID": "CWE-190",
+        "commit_message": "Fix bug #72262 - do not overflow int",
+        "fixed_function": "SPL_METHOD(SplFileInfo, getFileInfo)\n{\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n \tzend_class_entry *ce = intern->info_class;\n \tzend_error_handling error_handling;\n\n \tzend_replace_error_handling(EH_THROW, spl_ce_UnexpectedValueException, &error_handling TSRMLS_CC);\n \n \tif (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, \"|C\", &ce) == SUCCESS) {\n\t\tspl_filesystem_object_create_type(ht, intern, SPL_FS_INFO, ce, return_value TSRMLS_CC);\n\t}\n\n\tzend_restore_error_handling(&error_handling TSRMLS_CC);\n}\n",
+        "vul_function": "SPL_METHOD(SplFileInfo, getFileInfo)\n{\n \tspl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);\n \tzend_class_entry *ce = intern->info_class;\n \tzend_error_handling error_handling;\n \tzend_replace_error_handling(EH_THROW, spl_ce_UnexpectedValueException, &error_handling TSRMLS_CC);\n \n \tif (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, \"|C\", &ce) == SUCCESS) {\n\t\tspl_filesystem_object_create_type(ht, intern, SPL_FS_INFO, ce, return_value TSRMLS_CC);\n\t}\n\n\tzend_restore_error_handling(&error_handling TSRMLS_CC);\n}\n",
+        "llama3.1 Summary": "The patch adds a check to prevent an integer overflow in the zend_parse_parameters function, which is used to validate user input. This change prevents a potential security vulnerability where an attacker could manipulate user input to cause a buffer overflow. Fixed version of function: SPL_METHOD(SplFileInfo, getFileInfo) { spl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC); zend_class_entry *ce = intern->info_class; zend_error_handling error_handling; zend_replace_error_handling(EH_THROW, spl_ce_UnexpectedValueException, &error_handling TSRMLS_CC); if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, \"|C\", &ce) == SUCCESS && ZEND_NUM_ARGS() <= PHP_INT_MAX) { spl_filesystem_object_create_type(ht, intern, SPL_FS_INFO, ce, return_value TSRMLS_CC); } zend_restore_error_handling(&error_handling TSRMLS_CC); }",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2011-2820",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.4545",
+            "BERTScore Recall": "0.5645",
+            "BERTScore F1": "0.5036"
+        },
+        "llama3.1 Cosine_Similarity": 0.7200459241867065,
+        "Mistral Summary": "The patch changes the function by preventing integer overflow in the Zend Engine's zend_parse_parameters function call, which could potentially lead to buffer overflows or other unintended behavior if an incorrect number of parameters is passed. This change ensures that only the expected number of parameters are parsed and handled correctly.",
+        "Mistral CWE": "CWE-190 (Integer Overflow or Wraparound)",
+        "Mistral CVE": "Not applicable as the CVE ID is assigned to specific vulnerabilities and not categories like this one.",
+        "Mistral Cosine_Similarity": 0.46040594577789307,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.5942",
+            "BERTScore Recall": "0.5591",
+            "BERTScore F1": "0.5761"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/mdadams/jasper/commit/d42b2388f7f8e0332c846675133acea151fc557a",
+        "CVE ID": "CVE-2016-9557",
+        "CVE Details": "Integer overflow in jas_image.c in JasPer before 1.900.25 allows remote attackers to cause a denial of service (application crash) via a crafted file.",
+        "CWE ID": "CWE-190",
+        "commit_message": "The generation of the configuration file jas_config.h has been completely\nreworked in order to avoid pollution of the global namespace.\n\nSome problematic types like uchar, ulong, and friends have been replaced\nwith names with a jas_ prefix.\n\nAn option max_samples has been added to the BMP and JPEG decoders to\nrestrict the maximum size of image that they can decode.  This change\nwas made as a (possibly temporary) fix to address security concerns.\nA max_samples command-line option has also been added to imginfo.\n\nWhether an image component (for jas_image_t) is stored in memory or on\ndisk is now based on the component size (rather than the image size).\n\nSome debug log message were added.\n\nSome new integer overflow checks were added.\n\nSome new safe integer add/multiply functions were added.\n\nMore pre-C99 cruft was removed.  JasPer has numerous \"hacks\" to\nhandle pre-C99 compilers.  JasPer now assumes C99 support.  So, this\npre-C99 cruft is unnecessary and can be removed.\n\nThe regression jasper-doublefree-mem_close.jpg has been re-enabled.\nTheoretically, it should work more predictably now.",
+        "fixed_function": "jpc_ms_t *jpc_getms(jas_stream_t *in, jpc_cstate_t *cstate)\n{\n\tjpc_ms_t *ms;\n\tjpc_mstabent_t *mstabent;\n\tjas_stream_t *tmpstream;\n\n\tif (!(ms = jpc_ms_create(0))) {\n\t\treturn 0;\n\t}\n\n\t/* Get the marker type. */\n\tif (jpc_getuint16(in, &ms->id) || ms->id < JPC_MS_MIN ||\n\t  ms->id > JPC_MS_MAX) {\n\t\tjpc_ms_destroy(ms);\n\t\treturn 0;\n\t}\n\n\tmstabent = jpc_mstab_lookup(ms->id);\n\tms->ops = &mstabent->ops;\n\n\t/* Get the marker segment length and parameters if present. */\n\t/* Note: It is tacitly assumed that a marker segment cannot have\n\t  parameters unless it has a length field.  That is, there cannot\n\t  be a parameters field without a length field and vice versa. */\n\tif (JPC_MS_HASPARMS(ms->id)) {\n\t\t/* Get the length of the marker segment. */\n\t\tif (jpc_getuint16(in, &ms->len) || ms->len < 3) {\n\t\t\tjpc_ms_destroy(ms);\n\t\t\treturn 0;\n\t\t}\n\t\t/* Calculate the length of the marker segment parameters. */\n\t\tms->len -= 2;\n\t\t/* Create and prepare a temporary memory stream from which to\n\t\t  read the marker segment parameters. */\n\t\t/* Note: This approach provides a simple way of ensuring that\n\t\t  we never read beyond the end of the marker segment (even if\n\t\t  the marker segment length is errantly set too small). */\n\t\tif (!(tmpstream = jas_stream_memopen(0, 0))) {\n\t\t\tjpc_ms_destroy(ms);\n\t\t\treturn 0;\n\t\t}\n\t\tif (jas_stream_copy(tmpstream, in, ms->len) ||\n\t\t  jas_stream_seek(tmpstream, 0, SEEK_SET) < 0) {\n\t\t\tjas_stream_close(tmpstream);\n\t\t\tjpc_ms_destroy(ms);\n\t\t\treturn 0;\n\t\t}\n\t\t/* Get the marker segment parameters. */\n\t\tif ((*ms->ops->getparms)(ms, cstate, tmpstream)) {\n\t\t\tms->ops = 0;\n\t\t\tjpc_ms_destroy(ms);\n\t\t\tjas_stream_close(tmpstream);\n\t\t\treturn 0;\n\t\t}\n\n\t\tif (jas_getdbglevel() > 0) {\n \t\t\tjpc_ms_dump(ms, stderr);\n \t\t}\n \n\t\tif (JAS_CAST(jas_ulong, jas_stream_tell(tmpstream)) != ms->len) {\n \t\t\tjas_eprintf(\n \t\t\t  \"warning: trailing garbage in marker segment (%ld bytes)\\n\",\n \t\t\t  ms->len - jas_stream_tell(tmpstream));\n\t\t}\n\n\t\t/* Close the temporary stream. */\n\t\tjas_stream_close(tmpstream);\n\n\t} else {\n\t\t/* There are no marker segment parameters. */\n\t\tms->len = 0;\n\n\t\tif (jas_getdbglevel() > 0) {\n\t\t\tjpc_ms_dump(ms, stderr);\n\t\t}\n\t}\n\n\t/* Update the code stream state information based on the type of\n\t  marker segment read. */\n\t/* Note: This is a bit of a hack, but I'm not going to define another\n\t  type of virtual function for this one special case. */\n\tif (ms->id == JPC_MS_SIZ) {\n\t\tcstate->numcomps = ms->parms.siz.numcomps;\n\t}\n\n\treturn ms;\n}\n",
+        "vul_function": "jpc_ms_t *jpc_getms(jas_stream_t *in, jpc_cstate_t *cstate)\n{\n\tjpc_ms_t *ms;\n\tjpc_mstabent_t *mstabent;\n\tjas_stream_t *tmpstream;\n\n\tif (!(ms = jpc_ms_create(0))) {\n\t\treturn 0;\n\t}\n\n\t/* Get the marker type. */\n\tif (jpc_getuint16(in, &ms->id) || ms->id < JPC_MS_MIN ||\n\t  ms->id > JPC_MS_MAX) {\n\t\tjpc_ms_destroy(ms);\n\t\treturn 0;\n\t}\n\n\tmstabent = jpc_mstab_lookup(ms->id);\n\tms->ops = &mstabent->ops;\n\n\t/* Get the marker segment length and parameters if present. */\n\t/* Note: It is tacitly assumed that a marker segment cannot have\n\t  parameters unless it has a length field.  That is, there cannot\n\t  be a parameters field without a length field and vice versa. */\n\tif (JPC_MS_HASPARMS(ms->id)) {\n\t\t/* Get the length of the marker segment. */\n\t\tif (jpc_getuint16(in, &ms->len) || ms->len < 3) {\n\t\t\tjpc_ms_destroy(ms);\n\t\t\treturn 0;\n\t\t}\n\t\t/* Calculate the length of the marker segment parameters. */\n\t\tms->len -= 2;\n\t\t/* Create and prepare a temporary memory stream from which to\n\t\t  read the marker segment parameters. */\n\t\t/* Note: This approach provides a simple way of ensuring that\n\t\t  we never read beyond the end of the marker segment (even if\n\t\t  the marker segment length is errantly set too small). */\n\t\tif (!(tmpstream = jas_stream_memopen(0, 0))) {\n\t\t\tjpc_ms_destroy(ms);\n\t\t\treturn 0;\n\t\t}\n\t\tif (jas_stream_copy(tmpstream, in, ms->len) ||\n\t\t  jas_stream_seek(tmpstream, 0, SEEK_SET) < 0) {\n\t\t\tjas_stream_close(tmpstream);\n\t\t\tjpc_ms_destroy(ms);\n\t\t\treturn 0;\n\t\t}\n\t\t/* Get the marker segment parameters. */\n\t\tif ((*ms->ops->getparms)(ms, cstate, tmpstream)) {\n\t\t\tms->ops = 0;\n\t\t\tjpc_ms_destroy(ms);\n\t\t\tjas_stream_close(tmpstream);\n\t\t\treturn 0;\n\t\t}\n\n\t\tif (jas_getdbglevel() > 0) {\n \t\t\tjpc_ms_dump(ms, stderr);\n \t\t}\n \n\t\tif (JAS_CAST(ulong, jas_stream_tell(tmpstream)) != ms->len) {\n \t\t\tjas_eprintf(\n \t\t\t  \"warning: trailing garbage in marker segment (%ld bytes)\\n\",\n \t\t\t  ms->len - jas_stream_tell(tmpstream));\n\t\t}\n\n\t\t/* Close the temporary stream. */\n\t\tjas_stream_close(tmpstream);\n\n\t} else {\n\t\t/* There are no marker segment parameters. */\n\t\tms->len = 0;\n\n\t\tif (jas_getdbglevel() > 0) {\n\t\t\tjpc_ms_dump(ms, stderr);\n\t\t}\n\t}\n\n\t/* Update the code stream state information based on the type of\n\t  marker segment read. */\n\t/* Note: This is a bit of a hack, but I'm not going to define another\n\t  type of virtual function for this one special case. */\n\tif (ms->id == JPC_MS_SIZ) {\n\t\tcstate->numcomps = ms->parms.siz.numcomps;\n\t}\n\n\treturn ms;\n}\n",
+        "llama3.1 Summary": "The patch added integer overflow checks to prevent potential buffer overflows when reading marker segment parameters from the input stream, improving security by preventing an attacker from exploiting this vulnerability. This change addresses a critical issue where a carefully crafted image file could cause JasPer to write beyond its allocated memory boundaries, potentially leading to crashes or arbitrary code execution.",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2011-4868",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.6144",
+            "BERTScore Recall": "0.6502",
+            "BERTScore F1": "0.6318"
+        },
+        "llama3.1 Cosine_Similarity": 0.6399672031402588,
+        "Mistral Summary": null,
+        "Mistral CWE": null,
+        "Mistral CVE": null,
+        "Mistral Cosine_Similarity": 0.08056789636611938,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.3262",
+            "BERTScore Recall": "0.2947",
+            "BERTScore F1": "0.3096"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/verdammelt/tnef/commit/c5044689e50039635e7700fe2472fd632ac77176",
+        "CVE ID": "CVE-2017-6308",
+        "CVE Details": "An issue was discovered in tnef before 1.4.13. Several Integer Overflows, which can lead to Heap Overflows, have been identified in the functions that wrap memory allocation.",
+        "CWE ID": "CWE-190",
+        "commit_message": "Fix integer overflows and harden memory allocator.",
+        "fixed_function": "xmalloc (size_t size)\nxmalloc (size_t num, size_t size)\n {\n    size_t res;\n    if (check_mul_overflow(num, size, &res))\n        abort();\n\n    void *ptr = malloc (res);\n    if (!ptr\n         && (size != 0))         /* some libc don't like size == 0 */\n     {\n         perror (\"xmalloc: Memory allocation failure\");\n        abort();\n    }\n    return ptr;\n}\n",
+        "vul_function": "xmalloc (size_t size)\n {\n    void *ptr = malloc (size);\n    if (!ptr \n         && (size != 0))         /* some libc don't like size == 0 */\n     {\n         perror (\"xmalloc: Memory allocation failure\");\n        abort();\n    }\n    return ptr;\n}\n",
+        "llama3.1 Summary": "The patch addresses a vulnerability by adding overflow checks for multiplication operations, preventing potential integer overflows that could lead to incorrect memory allocation. This change was applied to prevent malicious code from exploiting the vulnerability and accessing sensitive information or causing system crashes. Fixed version of function: xmalloc (size_t num, size_t size) { size_t res; if (check_mul_overflow(num, size, &res)) abort(); void *ptr = malloc (res); if (!ptr && (size != 0)) /* some libc don't like size == 0 */ { perror (\"xmalloc: Memory allocation failure\"); abort(); } return ptr; }",
+        "llama3.1 CWE": "CWE-194",
+        "llama3.1 CVE": "CVE-2023-1234",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.4686",
+            "BERTScore Recall": "0.6216",
+            "BERTScore F1": "0.5344"
+        },
+        "llama3.1 Cosine_Similarity": 0.47215330600738525,
+        "Mistral Summary": "The patch adds a check for multiplication overflow before allocating memory to prevent integer overflow vulnerabilities in the xmalloc function. This change enhances the security of the memory allocator by protecting it from potential exploitation due to arithmetic overflows.",
+        "Mistral CWE": "CWE-134 (Arithmetic Overflow)",
+        "Mistral CVE": "CVE-XXXX-XXXX (The exact CVE ID will depend on the specific software, project, and version.)",
+        "Mistral Cosine_Similarity": 0.45144641399383545,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.6120",
+            "BERTScore Recall": "0.6308",
+            "BERTScore F1": "0.6213"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://github.com/mdadams/jasper/commit/d42b2388f7f8e0332c846675133acea151fc557a",
+        "CVE ID": "CVE-2016-9557",
+        "CVE Details": "Integer overflow in jas_image.c in JasPer before 1.900.25 allows remote attackers to cause a denial of service (application crash) via a crafted file.",
+        "CWE ID": "CWE-190",
+        "commit_message": "The generation of the configuration file jas_config.h has been completely\nreworked in order to avoid pollution of the global namespace.\n\nSome problematic types like uchar, ulong, and friends have been replaced\nwith names with a jas_ prefix.\n\nAn option max_samples has been added to the BMP and JPEG decoders to\nrestrict the maximum size of image that they can decode.  This change\nwas made as a (possibly temporary) fix to address security concerns.\nA max_samples command-line option has also been added to imginfo.\n\nWhether an image component (for jas_image_t) is stored in memory or on\ndisk is now based on the component size (rather than the image size).\n\nSome debug log message were added.\n\nSome new integer overflow checks were added.\n\nSome new safe integer add/multiply functions were added.\n\nMore pre-C99 cruft was removed.  JasPer has numerous \"hacks\" to\nhandle pre-C99 compilers.  JasPer now assumes C99 support.  So, this\npre-C99 cruft is unnecessary and can be removed.\n\nThe regression jasper-doublefree-mem_close.jpg has been re-enabled.\nTheoretically, it should work more predictably now.",
+        "fixed_function": " static int jas_iccgetsint32(jas_stream_t *in, jas_iccsint32_t *val)\n {\n\tjas_ulonglong tmp;\n \tif (jas_iccgetuint(in, 4, &tmp))\n \t\treturn -1;\n\t*val = (tmp & 0x80000000) ? (-JAS_CAST(jas_longlong, (((~tmp) &\n\t  0x7fffffff) + 1))) : JAS_CAST(jas_longlong, tmp);\n \treturn 0;\n }\n",
+        "vul_function": " static int jas_iccgetsint32(jas_stream_t *in, jas_iccsint32_t *val)\n {\n\tulonglong tmp;\n \tif (jas_iccgetuint(in, 4, &tmp))\n \t\treturn -1;\n\t*val = (tmp & 0x80000000) ? (-JAS_CAST(longlong, (((~tmp) &\n\t  0x7fffffff) + 1))) : JAS_CAST(longlong, tmp);\n \treturn 0;\n }\n",
+        "llama3.1 Summary": "The patch changes the data type of the variable 'tmp' from ulonglong to jas_ulonglong and updates the casting in the expression '*val = (tmp & 0x80000000) ? (-JAS_CAST(jas_longlong, (((~tmp) & 0x7fffffff) + 1))) : JAS_CAST(jas_longlong, tmp);'. This change was applied to prevent an integer overflow vulnerability. Fixed version of function: static int jas_iccgetsint32(jas_stream_t *in, jas_iccsint32_t *val) { jas_ulonglong tmp; if (jas_iccgetuint(in, 4, &tmp)) return -1; *val = (tmp & 0x80000000) ? (-JAS_CAST(jas_longlong, (((~tmp) & 0x7fffffff) + 1))) : JAS_CAST(jas_longlong, tmp); return 0; } Vulnerable version of function: static int jas_iccgetsint32(jas_stream_t *in, jas_iccsint32_t *val) { ulonglong tmp; if (jas_iccgetuint(in, 4, &tmp)) return -1; *val = (tmp & 0x80000000) ? (-JAS_CAST(longlong, (((~tmp) & 0x7fffffff) + 1))) : JAS_CAST(longlong, tmp); return 0; }",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2006-3242",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.3141",
+            "BERTScore Recall": "0.5215",
+            "BERTScore F1": "0.3921"
+        },
+        "llama3.1 Cosine_Similarity": 0.48032569885253906,
+        "Mistral Summary": "The patch adds new integer overflow checks and safe integer add/multiply functions to prevent potential integer overflow vulnerabilities. This was applied in response to the mentioned security concerns.",
+        "Mistral CWE": "CWE-190 (Integer Overflow)",
+        "Mistral CVE": "Unassigned (Since the commit message indicates a temporary fix to address security concerns, it's likely this vulnerability does not have an assigned CVE ID yet)",
+        "Mistral Cosine_Similarity": 0.42092108726501465,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.5580",
+            "BERTScore Recall": "0.5499",
+            "BERTScore F1": "0.5539"
+        },
+        "Tokens Used": ""
+    },
+    {
+        "codeLink": "https://git.qemu.org/?p=qemu.git;a=commit;h=8f4754ede56e3f9ea3fd7207f4a7c4453e59285b",
+        "CVE ID": "CVE-2014-0143",
+        "CVE Details": "Multiple integer overflows in the block drivers in QEMU, possibly before 2.0.0, allow local users to cause a denial of service (crash) via a crafted catalog size in (1) the parallels_open function in block/parallels.c or (2) bochs_open function in bochs.c, a large L1 table in the (3) qcow2_snapshot_load_tmp in qcow2-snapshot.c or (4) qcow2_grow_l1_table function in qcow2-cluster.c, (5) a large request in the bdrv_check_byte_request function in block.c and other block drivers, (6) crafted cluster indexes in the get_refcount function in qcow2-refcount.c, or (7) a large number of blocks in the cloop_open function in cloop.c, which trigger buffer overflows, memory corruption, large memory allocations and out-of-bounds read and writes.",
+        "CWE ID": "CWE-190",
+        "commit_message": "None",
+        "fixed_function": " static int bdrv_check_request(BlockDriverState *bs, int64_t sector_num,\n                               int nb_sectors)\n {\n    if (nb_sectors > INT_MAX / BDRV_SECTOR_SIZE) {\n        return -EIO;\n    }\n\n     return bdrv_check_byte_request(bs, sector_num * BDRV_SECTOR_SIZE,\n                                    nb_sectors * BDRV_SECTOR_SIZE);\n }\n",
+        "vul_function": " static int bdrv_check_request(BlockDriverState *bs, int64_t sector_num,\n                               int nb_sectors)\n {\n     return bdrv_check_byte_request(bs, sector_num * BDRV_SECTOR_SIZE,\n                                    nb_sectors * BDRV_SECTOR_SIZE);\n }\n",
+        "llama3.1 Summary": "The patch changes the function to check for overflow before calling bdrv_check_byte_request, preventing integer overflows and potential buffer overflows. This patch was applied to prevent exploitation of buffer overflow vulnerabilities that could lead to arbitrary code execution. Fixed version of function:  static int bdrv_check_request(BlockDriverState *bs, int64_t sector_num,\n                               int nb_sectors)\n {\n    if (nb_sectors > INT_MAX / BDRV_SECTOR_SIZE) {\n        return -EIO;\n    }\n\n     return bdrv_check_byte_request(bs, sector_num * BDRV_SECTOR_SIZE,\n                                    nb_sectors * BDRV_SECTOR_SIZE);\n }",
+        "llama3.1 CWE": "CWE-190",
+        "llama3.1 CVE": "CVE-2022-0001",
+        "llama3.1 BERT Score": {
+            "BERTScore Precision": "0.4792",
+            "BERTScore Recall": "0.4919",
+            "BERTScore F1": "0.4855"
+        },
+        "llama3.1 Cosine_Similarity": 0.46931636333465576,
+        "Mistral Summary": "The patch changes the function to correctly check for integer overflow before performing calculations. This was applied to prevent potential buffer overflows due to large sector numbers multiplied by BDRV_SECTOR_SIZE.",
+        "Mistral CWE": "CWE-199 (Integer Overflow or Wraparound)",
+        "Mistral CVE": "Not provided as it is not automatically assigned to individual commit changes, it's usually associated with a release containing multiple vulnerabilities.",
+        "Mistral Cosine_Similarity": 0.4066416025161743,
+        "Mistral BERT Score": {
+            "BERTScore Precision": "0.5912",
+            "BERTScore Recall": "0.4504",
+            "BERTScore F1": "0.5113"
+        },
+        "Tokens Used": ""
+    }
+]
